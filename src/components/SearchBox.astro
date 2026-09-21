@@ -1,0 +1,54 @@
+---
+import Icon from '@/components/Icon.astro';
+import type { Lang } from '@/lib/types';
+import { useTranslations } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+  value?: string;
+  action?: string;
+  size?: 'lg' | 'md';
+  autofocus?: boolean;
+  class?: string;
+}
+const { lang, value = '', action, size = 'md', autofocus = false, class: className = '' } = Astro.props;
+const t = useTranslations(lang);
+const endpoint = action ?? (lang === 'hi' ? '/hi/search' : '/search');
+---
+
+<form
+  action={endpoint}
+  method="get"
+  role="search"
+  class:list={['group relative flex w-full items-stretch gap-2', className]}
+>
+  <div class="relative flex-1">
+    <Icon
+      name="search"
+      size={18}
+      class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3 transition-colors group-focus-within:text-brand"
+    />
+    <input
+      type="search"
+      name="q"
+      value={value}
+      required
+      minlength="2"
+      autofocus={autofocus}
+      placeholder={t('searchPlaceholder')}
+      aria-label={t('searchTitle')}
+      class:list={[
+        'w-full rounded-xl border border-line bg-surface pl-11 pr-3 text-ink placeholder:text-ink-3 transition-all duration-200',
+        'focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15',
+        size === 'lg' ? 'h-13 py-3.5 text-base' : 'h-11 text-sm',
+      ]}
+      style={size === 'lg' ? 'height:3.25rem' : undefined}
+    />
+  </div>
+  <!-- aria-label is required: the visible text is hidden below `sm` and the
+       icon is aria-hidden, so this button would otherwise be unnamed on mobile. -->
+  <button type="submit" class:list={['btn btn-primary shrink-0', size === 'lg' && 'px-5']} aria-label={t('searchButton')}>
+    <Icon name="search" size={17} class="sm:hidden" />
+    <span class="hidden sm:inline" aria-hidden="true">{t('searchButton')}</span>
+  </button>
+</form>

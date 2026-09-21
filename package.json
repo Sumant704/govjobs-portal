@@ -1,0 +1,31 @@
+{
+  "name": "govjobs-portal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Government Jobs & Results Portal - Astro frontend (headless WordPress backend)",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "node --env-file-if-exists=.env ./dist/server/entry.mjs",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "verify": "npm run check && npm run build",
+    "mock:wp": "node scripts/mock-wordpress.mjs",
+    "wp:routes": "node scripts/inspect-routes.mjs",
+    "wp:fields": "node scripts/validate-wp-config.mjs",
+    "fonts": "node scripts/fetch-fonts.mjs",
+    "audit": "node scripts/lighthouse-audit.mjs",
+    "deploy:check": "node scripts/validate-deploy.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "^9.4.3",
+    "@tailwindcss/vite": "^4.1.13",
+    "astro": "^5.14.1",
+    "tailwindcss": "^4.1.13"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,38 @@
+---
+import Icon from '@/components/Icon.astro';
+import type { Lang } from '@/lib/types';
+import { useTranslations } from '@/i18n/utils';
+
+export interface Crumb {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  lang: Lang;
+  items: Crumb[];
+}
+const { lang, items } = Astro.props;
+const t = useTranslations(lang);
+const all: Crumb[] = [{ label: t('breadcrumbHome'), href: lang === 'hi' ? '/hi' : '/' }, ...items];
+---
+
+<nav aria-label="Breadcrumb" class="no-print">
+  <ol class="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
+    {all.map((crumb, i) => {
+      const isLast = i === all.length - 1;
+      return (
+        <li class="flex items-center gap-1.5">
+          {i > 0 && <Icon name="chevronRight" size={12} class="text-ink-3/60" />}
+          {crumb.href && !isLast ? (
+            <a href={crumb.href} class="transition-colors hover:text-brand">{crumb.label}</a>
+          ) : (
+            <span class:list={[isLast && 'font-medium text-ink-2']} aria-current={isLast ? 'page' : undefined}>
+              {crumb.label}
+            </span>
+          )}
+        </li>
+      );
+    })}
+  </ol>
+</nav>

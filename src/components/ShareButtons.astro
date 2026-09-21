@@ -1,0 +1,78 @@
+---
+import Icon from '@/components/Icon.astro';
+import type { Lang } from '@/lib/types';
+import { useTranslations } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+  url: string;
+  title: string;
+  class?: string;
+}
+const { lang, url, title, class: className = '' } = Astro.props;
+const t = useTranslations(lang);
+
+const encoded = encodeURIComponent(url);
+const text = encodeURIComponent(title);
+
+const targets = [
+  { icon: 'whatsapp' as const, label: t('shareWhatsapp'), href: `https://wa.me/?text=${text}%20${encoded}`, cls: 'hover:text-[#25D366] hover:border-[#25D366]' },
+  { icon: 'telegram' as const, label: t('shareTelegram'), href: `https://t.me/share/url?url=${encoded}&text=${text}`, cls: 'hover:text-[#229ED9] hover:border-[#229ED9]' },
+  { icon: 'facebook' as const, label: t('shareFacebook'), href: `https://www.facebook.com/sharer/sharer.php?u=${encoded}`, cls: 'hover:text-[#1877F2] hover:border-[#1877F2]' },
+  { icon: 'x' as const, label: t('shareX'), href: `https://twitter.com/intent/tweet?url=${encoded}&text=${text}`, cls: 'hover:text-ink hover:border-ink' },
+];
+---
+
+<div class:list={['no-print flex flex-wrap items-center gap-2', className]}>
+  <span class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-3">
+    <Icon name="share" size={14} />
+    {t('share')}
+  </span>
+  {targets.map((target) => (
+    <a
+      href={target.href}
+      target="_blank"
+      rel="noopener nofollow"
+      aria-label={target.label}
+      title={target.label}
+      class:list={[
+        'grid h-9 w-9 place-items-center rounded-lg border border-line bg-surface text-ink-2 transition-all duration-200 hover:-translate-y-0.5',
+        target.cls,
+      ]}
+    >
+      <Icon name={target.icon} size={17} />
+    </a>
+  ))}
+  <button
+    type="button"
+    data-copy-link
+    data-copy-value={url}
+    data-copied-label={t('copied')}
+    aria-label={t('copyLink')}
+    title={t('copyLink')}
+    class="grid h-9 w-9 place-items-center rounded-lg border border-line bg-surface text-ink-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+  >
+    <Icon name="copy" size={17} />
+  </button>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-copy-link]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const value = button.dataset.copyValue ?? window.location.href;
+      try {
+        await navigator.clipboard.writeText(value);
+        const original = button.getAttribute('title') ?? '';
+        button.setAttribute('title', button.dataset.copiedLabel ?? 'Copied');
+        button.classList.add('text-ok', 'border-ok');
+        window.setTimeout(() => {
+          button.setAttribute('title', original);
+          button.classList.remove('text-ok', 'border-ok');
+        }, 1600);
+      } catch {
+        // Clipboard API needs a secure context; fall back to a prompt.
+        window.prompt('Copy this link:', value);
+      }
+    });
+  });
+</script>

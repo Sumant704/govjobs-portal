@@ -1,0 +1,25 @@
+---
+/**
+ * Hindi homepage. Thin wrapper — all logic lives in HomePage.astro so the two
+ * locales cannot drift apart.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import HomePage from '@/components/pages/HomePage.astro';
+import { getLatest, getCategoryCounts } from '@/lib/wp';
+
+export const prerender = false;
+
+const lang = 'hi' as const;
+const [latest, counts] = await Promise.all([getLatest(lang, 6), getCategoryCounts(lang)]);
+const settings = Astro.locals.settings;
+---
+
+<BaseLayout
+  title={`${settings.name} — ${settings.tagline}`}
+  description="नवीनतम सरकारी नौकरी की सूचनाएं, परीक्षा परिणाम, एडमिट कार्ड, उत्तर कुंजी, सिलेबस एवं प्रवेश संबंधी जानकारी 2026। रिक्ति, पात्रता, शुल्क एवं महत्वपूर्ण तिथियों की व्यवस्थित तालिकाएं हिंदी में।"
+  canonicalPath="/"
+  lang={lang}
+  pageType="website"
+>
+  <HomePage lang={lang} latest={latest} counts={counts} />
+</BaseLayout>

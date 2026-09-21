@@ -1,0 +1,22 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import StaticPage from '@/components/pages/StaticPage.astro';
+import { getStaticPage, renderStaticDescription } from '@/content/static-pages';
+
+export const prerender = false;
+
+const lang = 'en' as const;
+const page = getStaticPage('contact')!;
+const settings = Astro.locals.settings;
+---
+
+<BaseLayout
+  title={page.title[lang]}
+  description={renderStaticDescription(page, lang, settings.name)}
+  canonicalPath="/contact"
+  lang={lang}
+  modifiedTime={`${page.updated}T00:00:00Z`}
+  showMarquee={false}
+>
+  <StaticPage lang={lang} page={page} />
+</BaseLayout>

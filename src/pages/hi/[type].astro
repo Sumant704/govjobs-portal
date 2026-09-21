@@ -1,0 +1,49 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import CategoryPage from '@/components/pages/CategoryPage.astro';
+import NotFound from '@/components/pages/NotFound.astro';
+import { resolvePostType } from '@/lib/post-types';
+import { getPosts, getCategoryCounts } from '@/lib/wp';
+import { useTranslations } from '@/i18n/utils';
+
+export const prerender = false;
+
+const lang = 'hi' as const;
+const segment = Astro.params.type ?? '';
+const config = resolvePostType(segment);
+
+const query: Record<string, string> = {};
+for (const [key, value] of Astro.url.searchParams) query[key] = value;
+
+const page = Math.max(1, Number(query.page ?? 1) || 1);
+
+const posts = config
+  ? await getPosts({
+      type: config.key,
+      lang,
+      page,
+      perPage: 15,
+      search: query.q,
+      organization: query.organization,
+    })
+  : { items: [], total: 0, totalPages: 1, page: 1, perPage: 15 };
+
+const counts = config ? {} : await getCategoryCounts(lang);
+if (!config) Astro.response.status = 404;
+
+const t = useTranslations(lang);
+---
+
+<BaseLayout
+  title={config ? config.label[lang] : t('notFoundTitle')}
+  description={config ? `${config.description[lang]} प्रतिदिन अद्यतन। पृष्ठ ${page}।` : t('notFoundBody')}
+  canonicalPath={config ? `/${config.slug}` : '/404'}
+  lang={lang}
+  robots={page > 1 ? 'noindex, follow' : 'index, follow'}
+>
+  {config ? (
+    <CategoryPage lang={lang} type={config} posts={posts} query={query} />
+  ) : (
+    <NotFound lang={lang} counts={counts} />
+  )}
+</BaseLayout>

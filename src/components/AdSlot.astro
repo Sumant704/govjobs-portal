@@ -1,0 +1,88 @@
+---
+/**
+ * Reserved ad slot.
+ *
+ * Ad slots are laid out from day one with a fixed aspect ratio, because
+ * dropping an ad into an unpreserved space is the classic way to tank CLS and
+ * lose the Lighthouse 90+ target. The slot renders a labelled placeholder until
+ * AdSense fills it, so the layout is identical either way.
+ *
+ * `format` maps to standard IAB sizes:
+ *   leaderboard 728x90   (desktop top/bottom)
+ *   billboard   970x250  (desktop hero, optional)
+ *   rectangle   336x280  (in-content)
+ *   halfpage    300x600  (sidebar)
+ *   mobile      320x100  (sticky mobile anchor)
+ *   fluid       responsive, auto height
+ */
+import { SITE } from '@/lib/site';
+
+interface Props {
+  slot: string;
+  format?: 'leaderboard' | 'billboard' | 'rectangle' | 'halfpage' | 'mobile' | 'fluid';
+  label?: string;
+  class?: string;
+}
+
+const { slot, format = 'fluid', label = 'Advertisement', class: className = '' } = Astro.props;
+
+const client = import.meta.env.PUBLIC_ADSENSE_CLIENT as string | undefined;
+const enabled = import.meta.env.PUBLIC_ADSENSE_ENABLED !== 'false' && Boolean(client);
+
+// Reserve space so the ad never shifts the page.
+const RATIO: Record<string, string> = {
+  leaderboard: 'aspect-[728/90] max-w-[728px]',
+  billboard: 'aspect-[970/250] max-w-[970px]',
+  rectangle: 'aspect-[336/280] max-w-[336px]',
+  halfpage: 'aspect-[300/600] max-w-[300px]',
+  mobile: 'aspect-[320/100] max-w-[320px]',
+  fluid: 'min-h-[90px]',
+};
+---
+
+<div class:list={['no-print mx-auto w-full', className]} data-ad-slot={slot}>
+  {enabled ? (
+    <ins
+      class:list={['adsbygoogle block w-full', RATIO[format]]}
+      style="display:block"
+      data-ad-client={client}
+      data-ad-slot={slot}
+      data-ad-format={format === 'fluid' ? 'auto' : undefined}
+      data-full-width-responsive={format === 'fluid' ? 'true' : undefined}
+    />
+  ) : (
+    /* Placeholder keeps the exact reserved dimensions so switching AdSense on
+       does not move a single pixel of content. */
+    <div
+      class:list={[
+        'grid w-full place-items-center rounded-xl border border-dashed border-line-strong bg-surface-2 text-center',
+        RATIO[format],
+      ]}
+      aria-hidden="true"
+    >
+      <div class="px-4">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-ink-3">{label}</p>
+        <p class="mt-1 text-[11px] text-ink-3">{SITE.name} · {slot}</p>
+      </div>
+    </div>
+  )}
+</div>
+
+<script is:inline>
+  // AdSense needs one push per <ins> after the library loads. Doing it here
+  // (rather than inline next to each unit) means the script tag stays in <head>
+  // with async, and units still fill correctly.
+  (function () {
+    function push() {
+      document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])').forEach(function () {
+        try {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+        } catch (e) {
+          /* AdSense not loaded (ad-blocker / disabled) — placeholder is fine. */
+        }
+      });
+    }
+    if (document.readyState === 'complete') push();
+    else window.addEventListener('load', push, { once: true });
+  })();
+</script>

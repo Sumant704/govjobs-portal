@@ -1,0 +1,22 @@
+{
+  "name": "SarkariHub — Government Jobs, Results & Admit Cards",
+  "short_name": "SarkariHub",
+  "description": "Latest government job notifications, exam results, admit cards, answer keys and syllabus updates in English and Hindi.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#070b14",
+  "theme_color": "#0d1424",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": ["education", "government", "news"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

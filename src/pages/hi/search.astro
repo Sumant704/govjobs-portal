@@ -1,0 +1,32 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SearchPage from '@/components/pages/SearchPage.astro';
+import { searchPosts, getCategoryCounts } from '@/lib/wp';
+
+export const prerender = false;
+
+const lang = 'hi' as const;
+const query = (Astro.url.searchParams.get('q') ?? '').trim();
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? 1) || 1);
+
+const [results, counts] = await Promise.all([
+  searchPosts(query, lang, page, 12),
+  getCategoryCounts(lang),
+]);
+
+const settings = Astro.locals.settings;
+---
+
+<BaseLayout
+  title={query ? `खोज: ${query}` : 'सरकारी नौकरी, रिजल्ट और एडमिट कार्ड खोजें'}
+  description={
+    query
+      ? `“${query}” के लिए ${results.total} परिणाम — सरकारी नौकरी सूचनाएं, परीक्षा परिणाम, एडमिट कार्ड एवं उत्तर कुंजी।`
+      : `${settings.name} पर सरकारी नौकरी सूचनाएं, परीक्षा परिणाम, एडमिट कार्ड, उत्तर कुंजी एवं सिलेबस खोजें।`
+  }
+  canonicalPath="/search"
+  lang={lang}
+  robots="noindex, follow"
+>
+  <SearchPage lang={lang} query={query} results={results} counts={counts} />
+</BaseLayout>

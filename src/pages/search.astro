@@ -1,0 +1,35 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SearchPage from '@/components/pages/SearchPage.astro';
+import { searchPosts, getCategoryCounts } from '@/lib/wp';
+
+export const prerender = false;
+
+const lang = 'en' as const;
+const query = (Astro.url.searchParams.get('q') ?? '').trim();
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? 1) || 1);
+
+const [results, counts] = await Promise.all([
+  searchPosts(query, lang, page, 12),
+  getCategoryCounts(lang),
+]);
+
+const settings = Astro.locals.settings;
+
+const title = query ? `Search: ${query}` : 'Search government jobs, results and admit cards';
+const description = query
+  ? `${results.total} results for “${query}” — government job notifications, exam results, admit cards and answer keys.`
+  : `Search ${settings.name} for government job notifications, exam results, admit cards, answer keys and syllabi.`;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonicalPath="/search"
+  lang={lang}
+  /* Search result pages are thin, query-driven and infinite — indexing them
+     wastes crawl budget and produces duplicate content. */
+  robots="noindex, follow"
+>
+  <SearchPage lang={lang} query={query} results={results} counts={counts} />
+</BaseLayout>

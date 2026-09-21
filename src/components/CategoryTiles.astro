@@ -1,0 +1,55 @@
+---
+import Icon from '@/components/Icon.astro';
+import type { Lang, PostTypeKey } from '@/lib/types';
+import { POST_TYPES, NAV_ORDER, categoryPath } from '@/lib/post-types';
+import { useTranslations } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+  /** Live counts keyed by post type, used for the badge on each tile. */
+  counts?: Partial<Record<PostTypeKey, number>>;
+}
+const { lang, counts = {} } = Astro.props;
+const t = useTranslations(lang);
+---
+
+<section aria-labelledby="browse-categories" class="reveal">
+  <div class="section-head">
+    <h2 id="browse-categories" class="section-title">{t('browseAll')}</h2>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    {NAV_ORDER.map((key) => {
+      const type = POST_TYPES[key];
+      const count = counts[key];
+      const accent = `var(--${type.accent})`;
+      const accentSoft = `var(--${type.accent}-soft)`;
+      return (
+        <a
+          href={categoryPath(key, lang)}
+          class="card card-hover group relative flex flex-col items-center gap-2.5 overflow-hidden p-4 text-center"
+        >
+          <!-- Soft radial wash that intensifies on hover -->
+          <span
+            class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            style={`background: radial-gradient(120% 80% at 50% 0%, ${accentSoft} 0%, transparent 70%);`}
+            aria-hidden="true"
+          ></span>
+
+          <span
+            class="relative grid h-12 w-12 place-items-center rounded-2xl transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105"
+            style={`background:${accentSoft}; color:${accent};`}
+          >
+            <Icon name={type.icon as any} size={24} />
+          </span>
+
+          <span class="relative text-[13px] font-bold leading-tight">{type.label[lang]}</span>
+
+          {typeof count === 'number' && count > 0 && (
+            <span class="relative text-[11px] font-medium text-ink-3">{count} {count === 1 ? t('postSingular') : t('posts')}</span>
+          )}
+        </a>
+      );
+    })}
+  </div>
+</section>

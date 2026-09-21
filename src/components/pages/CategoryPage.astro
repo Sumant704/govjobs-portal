@@ -1,0 +1,191 @@
+---
+import Icon from '@/components/Icon.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import PostCard from '@/components/PostCard.astro';
+import Pagination from '@/components/Pagination.astro';
+import AdSlot from '@/components/AdSlot.astro';
+import { POST_TYPES, NAV_ORDER, categoryPath, type PostTypeConfig } from '@/lib/post-types';
+import type { Lang, Paginated, PostSummary } from '@/lib/types';
+import { useTranslations } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+  type: PostTypeConfig;
+  posts: Paginated<PostSummary>;
+  /** Current query params, preserved through pagination + filters. */
+  query: Record<string, string>;
+  contentSource?: 'wordpress' | 'snapshot';
+}
+const { lang, type, posts, query } = Astro.props;
+const t = useTranslations(lang);
+
+const accent = `var(--${type.accent})`;
+const accentSoft = `var(--${type.accent}-soft)`;
+
+/**
+ * Filter chips are derived from the organizations present in the current
+ * result page. That keeps them working in both data modes (WordPress and the
+ * offline snapshot) without a second round trip.
+ *
+ * If you later want the full taxonomy, hit `/wp-json/wp/v2/organization` and
+ * render the top N by count — but note that a 300-org chip list is worse UX
+ * than 8 relevant ones, which is why this starts from what is on screen.
+ */
+const organizations = Array.from(
+  new Map(posts.items.filter((p) => p.organization).map((p) => [p.organization, p])).keys(),
+).slice(0, 8);
+
+const activeOrg = query.organization ?? '';
+
+const buildHref = (params: Record<string, string | undefined>) => {
+  const next = new URLSearchParams();
+  for (const [key, value] of Object.entries({ ...query, ...params })) {
+    if (value) next.set(key, value);
+  }
+  const qs = next.toString();
+  return qs ? `${categoryPath(type.key, lang)}?${qs}` : categoryPath(type.key, lang);
+};
+
+const siblings = NAV_ORDER.filter((key) => key !== type.key).slice(0, 5);
+---
+
+<!-- Page header -->
+<header class="relative overflow-hidden border-b border-line bg-surface-2">
+  <div
+    class="pointer-events-none absolute inset-0 opacity-[0.14]"
+    style={`background: radial-gradient(90% 140% at 12% 0%, ${accent} 0%, transparent 65%);`}
+    aria-hidden="true"
+  ></div>
+
+  <div class="container-page relative py-6 sm:py-8">
+    <Breadcrumbs lang={lang} items={[{ label: type.label[lang] }]} />
+
+    <div class="mt-4 flex items-start gap-4">
+      <span
+        class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl shadow-pop"
+        style={`background:${accentSoft}; color:${accent};`}
+      >
+        <Icon name={type.icon as any} size={28} />
+      </span>
+      <div class="min-w-0">
+        <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">{type.label[lang]}</h1>
+        <p class="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-2">{type.description[lang]}</p>
+        <p class="mt-2 text-xs text-ink-3">
+          {posts.total} {t('posts')}
+          {query.q && <> · {t('searchResultsFor')} “{query.q}”</>}
+        </p>
+      </div>
+    </div>
+
+    <!-- Organization filter chips -->
+    {organizations.length > 1 && (
+      <div class="mt-5 flex flex-wrap items-center gap-1.5">
+        <span class="mr-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">
+          <Icon name="filter" size={12} />
+          {t('filterByOrganization')}
+        </span>
+        <a
+          href={buildHref({ organization: undefined, page: undefined })}
+          class:list={['chip', !activeOrg && 'border-brand bg-brand-soft font-semibold text-brand']}
+        >
+          {t('filterAll')}
+        </a>
+        {organizations.map((org) => (
+          <a
+            href={buildHref({ organization: org, page: undefined })}
+            class:list={['chip', activeOrg === org && 'border-brand bg-brand-soft font-semibold text-brand']}
+          >
+            {org}
+          </a>
+        ))}
+        {activeOrg && (
+          <a href={buildHref({ organization: undefined, page: undefined })} class="chip border-rose text-rose">
+            <Icon name="close" size={12} />
+            {t('filterClear')}
+          </a>
+        )}
+      </div>
+    )}
+  </div>
+</header>
+
+<div class="container-page grid gap-8 pt-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+  <!-- Listing -->
+  <div>
+    <AdSlot slot={`cat-${type.key}-top`} format="leaderboard" label={t('adLabel')} class="mb-6" />
+
+    {posts.items.length ? (
+      <div class="card px-4 py-1">
+        {posts.items.map((post, i) => (
+          <div class="reveal" data-reveal-delay={String(Math.min(i, 6) * 40)}>
+            <PostCard post={post} lang={lang} variant="row" showType={false} headingLevel={2} />
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div class="card grid place-items-center px-6 py-16 text-center">
+        <span class="grid h-14 w-14 place-items-center rounded-2xl bg-surface-2 text-ink-3">
+          <Icon name="search" size={26} />
+        </span>
+        <p class="mt-4 text-base font-bold">{t('noPosts')}</p>
+        <p class="mt-1.5 max-w-md text-sm text-ink-2">{t('noPostsHint')}</p>
+        <a href={categoryPath(type.key, lang)} class="btn btn-outline mt-5">
+          {t('filterClear')}
+        </a>
+      </div>
+    )}
+
+    <Pagination
+      lang={lang}
+      page={posts.page}
+      totalPages={posts.totalPages}
+      basePath={categoryPath(type.key, lang)}
+      query={new URLSearchParams(
+        Object.entries(query).filter(([k]) => k !== 'page') as [string, string][],
+      ).toString()}
+    />
+
+    <AdSlot slot={`cat-${type.key}-bottom`} format="leaderboard" label={t('adLabel')} class="mt-8" />
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
+    <AdSlot slot={`cat-${type.key}-sidebar`} format="halfpage" label={t('adLabel')} />
+
+    <nav class="card p-4" aria-labelledby="cat-other">
+      <h2 id="cat-other" class="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink">
+        <Icon name="layers" size={14} class="text-brand" />
+        {t('footerCategories')}
+      </h2>
+      <ul class="space-y-1">
+        {siblings.map((key) => (
+          <li>
+            <a
+              href={categoryPath(key, lang)}
+              class="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand"
+            >
+              <span class="flex items-center gap-2.5">
+                <span
+                  class="grid h-6 w-6 place-items-center rounded-md"
+                  style={`background:var(--${POST_TYPES[key].accent}-soft); color:var(--${POST_TYPES[key].accent});`}
+                >
+                  <Icon name={POST_TYPES[key].icon as any} size={13} />
+                </span>
+                {POST_TYPES[key].short[lang]}
+              </span>
+              <Icon name="chevronRight" size={14} class="text-ink-3" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <div class="card border-l-4 border-l-accent p-4">
+      <h2 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink">
+        <Icon name="alert" size={14} class="text-accent" />
+        {t('disclaimer')}
+      </h2>
+      <p class="mt-2 text-[12px] leading-relaxed text-ink-2">{t('footerDisclaimer')}</p>
+    </div>
+  </aside>
+</div>

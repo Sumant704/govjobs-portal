@@ -1,0 +1,29 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import HomePage from '@/components/pages/HomePage.astro';
+import { getLatest, getCategoryCounts } from '@/lib/wp';
+
+export const prerender = false;
+
+const lang = 'en' as const;
+
+// Both calls fan out over the seven post types in parallel, and both are
+// TTL-cached, so this costs one round trip per type on a cold cache.
+const [latest, counts] = await Promise.all([getLatest(lang, 6), getCategoryCounts(lang)]);
+
+const settings = Astro.locals.settings;
+
+const title = `${settings.name} — ${settings.tagline}`;
+const description =
+  'Latest government job notifications, exam results, admit cards, answer keys, syllabus and admission updates for 2026. Structured vacancy, eligibility, fee and important-date tables in English and Hindi.';
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonicalPath="/"
+  lang={lang}
+  pageType="website"
+>
+  <HomePage lang={lang} latest={latest} counts={counts} />
+</BaseLayout>

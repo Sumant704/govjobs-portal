@@ -1,0 +1,319 @@
+[
+  {
+    "key": "group_govjobs_essentials",
+    "title": "GovJobs — Content Essentials",
+    "fields": [
+      {
+        "key": "field_gj_organization",
+        "label": "Organization",
+        "name": "organization",
+        "type": "text",
+        "instructions": "Recruiting body, e.g. \"Staff Selection Commission\". Shown in the post header, cards and schema.org markup.",
+        "required": 1,
+        "maxlength": 120,
+        "wrapper": { "width": "50" }
+      },
+      {
+        "key": "field_gj_short_description",
+        "label": "Short Description",
+        "name": "short_description",
+        "type": "textarea",
+        "instructions": "2–3 sentences. Used on listing cards and as the meta description fallback if no SEO plugin value exists. Aim for 140–158 characters.",
+        "required": 1,
+        "rows": 3,
+        "new_lines": "",
+        "maxlength": 320
+      },
+      {
+        "key": "field_gj_important_dates",
+        "label": "Important Dates",
+        "name": "important_dates",
+        "type": "repeater",
+        "instructions": "Every date a candidate needs. Put the application deadline on its own row and switch Highlight on — the frontend uses that row for the countdown, the \"days left\" badge and schema.org validThrough.",
+        "required": 1,
+        "layout": "table",
+        "pagination": 0,
+        "min": 1,
+        "max": 0,
+        "button_label": "Add date",
+        "sub_fields": [
+          {
+            "key": "field_gj_date_label",
+            "label": "Event",
+            "name": "label",
+            "type": "text",
+            "instructions": "e.g. \"Last Date for Apply Online\"",
+            "required": 1,
+            "maxlength": 90
+          },
+          {
+            "key": "field_gj_date_value",
+            "label": "Date",
+            "name": "date",
+            "type": "date_picker",
+            "instructions": "Leave empty and type free text instead (e.g. \"Before Exam\") if the date is not announced yet.",
+            "required": 0,
+            "display_format": "d/m/Y",
+            "return_format": "Y-m-d",
+            "first_day": 1
+          },
+          {
+            "key": "field_gj_date_emphasis",
+            "label": "Highlight",
+            "name": "emphasis",
+            "type": "true_false",
+            "instructions": "Highlighted rows get an accent background and drive deadline logic.",
+            "ui": 1,
+            "ui_on_text": "Yes",
+            "ui_off_text": "No"
+          }
+        ]
+      },
+      {
+        "key": "field_gj_application_fee",
+        "label": "Application Fee",
+        "name": "application_fee",
+        "type": "repeater",
+        "instructions": "One row per category. Enter 0 for free — the frontend renders it as a green \"Free\" pill rather than \"₹0\".",
+        "required": 0,
+        "layout": "table",
+        "button_label": "Add fee row",
+        "sub_fields": [
+          {
+            "key": "field_gj_fee_category",
+            "label": "Category",
+            "name": "category",
+            "type": "text",
+            "instructions": "e.g. \"General / OBC / EWS\"",
+            "required": 1,
+            "maxlength": 80
+          },
+          {
+            "key": "field_gj_fee_amount",
+            "label": "Amount (₹)",
+            "name": "amount",
+            "type": "text",
+            "instructions": "Digits only, or 0 for free. \"100\" renders as ₹100/-.",
+            "required": 1,
+            "maxlength": 20
+          }
+        ]
+      },
+      {
+        "key": "field_gj_official_website",
+        "label": "Official Website",
+        "name": "official_website",
+        "type": "url",
+        "instructions": "Full URL including https://. Also used as the fallback for the Apply Online button when that field is empty.",
+        "required": 1,
+        "wrapper": { "width": "50" }
+      },
+      {
+        "key": "field_gj_apply_online_link",
+        "label": "Apply Online Link",
+        "name": "apply_online_link",
+        "type": "url",
+        "instructions": "Direct link to the application form or registration portal. Shown as the primary orange button on mobile.",
+        "required": 0,
+        "wrapper": { "width": "50" }
+      },
+      {
+        "key": "field_gj_notification_pdf",
+        "label": "Official Notification (PDF)",
+        "name": "notification_pdf",
+        "type": "file",
+        "instructions": "Upload the official notification PDF. IMPORTANT: set Return Value to \"File URL\" in the field settings — the frontend expects a URL string, though it also handles the array/object return formats.",
+        "required": 0,
+        "return_format": "url",
+        "library": "all",
+        "mime_types": "pdf",
+        "wrapper": { "width": "50" }
+      },
+      {
+        "key": "field_gj_how_to_apply",
+        "label": "How to Apply",
+        "name": "how_to_apply",
+        "type": "wysiwyg",
+        "instructions": "Numbered steps. Keep it practical: where to register, what to upload, how to pay.",
+        "required": 0,
+        "tabs": "all",
+        "toolbar": "basic",
+        "media_upload": 0
+      }
+    ],
+    "location": [
+      [{ "param": "post_type", "operator": "==", "value": "jobs" }],
+      [{ "param": "post_type", "operator": "==", "value": "results" }],
+      [{ "param": "post_type", "operator": "==", "value": "admit-card" }],
+      [{ "param": "post_type", "operator": "==", "value": "answer-key" }],
+      [{ "param": "post_type", "operator": "==", "value": "syllabus" }],
+      [{ "param": "post_type", "operator": "==", "value": "admission" }],
+      [{ "param": "post_type", "operator": "==", "value": "notification" }]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "Fields present on every GovJobs post type. These map 1:1 to the structured tables on the frontend — if you add a field here, add it to src/lib/wp.ts too (npm run wp:fields checks this).",
+    "show_in_rest": 1,
+    "rest_base": ""
+  },
+  {
+    "key": "group_govjobs_eligibility",
+    "title": "GovJobs — Eligibility, Age & Vacancies",
+    "fields": [
+      {
+        "key": "field_gj_qualification",
+        "label": "Educational Qualification",
+        "name": "qualification",
+        "type": "textarea",
+        "instructions": "Plain sentence, e.g. \"Bachelor's Degree in any stream from a recognised university.\" Appears in the Quick Summary box and in schema.org educationRequirements.",
+        "required": 0,
+        "rows": 2,
+        "new_lines": "",
+        "wrapper": { "width": "50" }
+      },
+      {
+        "key": "field_gj_job_location",
+        "label": "Job Location",
+        "name": "job_location",
+        "type": "text",
+        "instructions": "e.g. \"All India\", \"Uttar Pradesh\", \"New Delhi\". Used for schema.org addressRegion.",
+        "required": 0,
+        "maxlength": 90,
+        "wrapper": { "width": "50" }
+      },
+      {
+        "key": "field_gj_age_limit",
+        "label": "Age Limit",
+        "name": "age_limit",
+        "type": "group",
+        "instructions": "Leave blank for posts with no age criteria (e.g. many admissions). Empty fields render nothing rather than an empty table.",
+        "required": 0,
+        "layout": "block",
+        "sub_fields": [
+          {
+            "key": "field_gj_age_min",
+            "label": "Minimum Age",
+            "name": "min",
+            "type": "text",
+            "instructions": "Include the unit: \"18 Years\"",
+            "required": 0,
+            "maxlength": 30,
+            "wrapper": { "width": "33" }
+          },
+          {
+            "key": "field_gj_age_max",
+            "label": "Maximum Age",
+            "name": "max",
+            "type": "text",
+            "instructions": "Include the unit: \"32 Years\"",
+            "required": 0,
+            "maxlength": 30,
+            "wrapper": { "width": "33" }
+          },
+          {
+            "key": "field_gj_age_as_on",
+            "label": "Age calculated as on",
+            "name": "as_on",
+            "type": "date_picker",
+            "instructions": "The cut-off date the age is calculated against.",
+            "required": 0,
+            "display_format": "d/m/Y",
+            "return_format": "Y-m-d",
+            "wrapper": { "width": "34" }
+          },
+          {
+            "key": "field_gj_age_relaxation",
+            "label": "Age Relaxation",
+            "name": "relaxation",
+            "type": "text",
+            "instructions": "e.g. \"SC/ST 5 years, OBC 3 years, PwBD 10 years\"",
+            "required": 0,
+            "maxlength": 200
+          }
+        ]
+      },
+      {
+        "key": "field_gj_total_vacancies",
+        "label": "Total Vacancies",
+        "name": "total_vacancies",
+        "type": "text",
+        "instructions": "Digits only, e.g. 17727 — the frontend adds the thousands separators (renders as 17,727). Non-numeric values like \"280+ Universities\" are also accepted and shown verbatim.",
+        "required": 0,
+        "maxlength": 30,
+        "wrapper": { "width": "30" }
+      },
+      {
+        "key": "field_gj_is_featured",
+        "label": "Featured",
+        "name": "is_featured",
+        "type": "true_false",
+        "instructions": "Pins the post to the homepage hero panel and adds a \"Featured\" badge.",
+        "ui": 1,
+        "ui_on_text": "Featured",
+        "ui_off_text": "Normal",
+        "wrapper": { "width": "30" }
+      },
+      {
+        "key": "field_gj_vacancy_details",
+        "label": "Vacancy Details",
+        "name": "vacancy_details",
+        "type": "repeater",
+        "instructions": "One row per post. The Total row of the rendered table is taken from \"Total Vacancies\" above, not from these rows — so you cannot publish a table that contradicts its own total.",
+        "required": 0,
+        "layout": "table",
+        "button_label": "Add post",
+        "sub_fields": [
+          {
+            "key": "field_gj_vacancy_post",
+            "label": "Post Name",
+            "name": "post_name",
+            "type": "text",
+            "required": 1,
+            "maxlength": 140
+          },
+          {
+            "key": "field_gj_vacancy_count",
+            "label": "No. of Posts",
+            "name": "total_posts",
+            "type": "text",
+            "required": 1,
+            "maxlength": 30
+          },
+          {
+            "key": "field_gj_vacancy_eligibility",
+            "label": "Post-specific eligibility",
+            "name": "eligibility",
+            "type": "text",
+            "instructions": "Optional. Use when different posts in the same notification need different qualifications.",
+            "required": 0,
+            "maxlength": 200
+          }
+        ]
+      }
+    ],
+    "location": [
+      [{ "param": "post_type", "operator": "==", "value": "jobs" }],
+      [{ "param": "post_type", "operator": "==", "value": "results" }],
+      [{ "param": "post_type", "operator": "==", "value": "admit-card" }],
+      [{ "param": "post_type", "operator": "==", "value": "answer-key" }],
+      [{ "param": "post_type", "operator": "==", "value": "syllabus" }],
+      [{ "param": "post_type", "operator": "==", "value": "admission" }],
+      [{ "param": "post_type", "operator": "==", "value": "notification" }]
+    ],
+    "menu_order": 1,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "Eligibility, age and vacancy data. These drive the Quick Summary box, the Age Limit and Vacancy Details tables, and the JobPosting schema.",
+    "show_in_rest": 1,
+    "rest_base": ""
+  }
+]

@@ -1,0 +1,285 @@
+---
+import Icon from '@/components/Icon.astro';
+import SearchBox from '@/components/SearchBox.astro';
+import CategoryTiles from '@/components/CategoryTiles.astro';
+import PostCard from '@/components/PostCard.astro';
+import AdSlot from '@/components/AdSlot.astro';
+import { POST_TYPES, NAV_ORDER, categoryPath } from '@/lib/post-types';
+import { SITE_STATS } from '@/lib/site';
+import type { Lang, PostSummary, PostTypeKey } from '@/lib/types';
+import { useTranslations, localizePath } from '@/i18n/utils';
+import { formatDate, formatNumber } from '@/lib/format';
+
+/**
+ * Homepage.
+ *
+ * On the stats row below: a <dl> is the right element for label/value pairs,
+ * but it has rules — each group must be wrapped in a <div>, and <dt> must come
+ * before <dd>. The visual design puts the number above the label, so the DOM
+ * order is correct and `flex-col-reverse` flips it for display, rather than
+ * putting <dd> first and shipping invalid markup. That invalid ordering is what
+ * Lighthouse's `definition-list` and `dlitem` audits flagged.
+ *
+ * (Note: HTML comments ship to the browser; frontmatter comments do not.)
+ */
+interface Props {
+  lang: Lang;
+  latest: Record<PostTypeKey, PostSummary[]>;
+  counts: Partial<Record<PostTypeKey, number>>;
+}
+const { lang, latest, counts } = Astro.props;
+const t = useTranslations(lang);
+
+/** Section copy keyed by post type, so the markup below stays generic. */
+const SECTION_COPY: Record<PostTypeKey, { title: string; sub: string }> = {
+  jobs: { title: t('sectionLatestJobs'), sub: t('sectionLatestJobsSub') },
+  results: { title: t('sectionResults'), sub: t('sectionResultsSub') },
+  'admit-card': { title: t('sectionAdmitCard'), sub: t('sectionAdmitCardSub') },
+  'answer-key': { title: t('sectionAnswerKey'), sub: t('sectionAnswerKeySub') },
+  syllabus: { title: t('sectionSyllabus'), sub: t('sectionSyllabusSub') },
+  admission: { title: t('sectionAdmission'), sub: t('sectionAdmissionSub') },
+  notification: { title: t('sectionNotifications'), sub: t('sectionNotificationsSub') },
+};
+
+const heroJobs = latest.jobs?.slice(0, 3) ?? [];
+const sidebarKeys: PostTypeKey[] = ['answer-key', 'syllabus', 'admission'];
+---
+
+<!-- ======================================================================
+     Hero
+     ====================================================================== -->
+<section class="mesh-hero relative overflow-hidden border-b border-line">
+  <div class="pointer-events-none absolute inset-0 grid-lines opacity-60" aria-hidden="true"></div>
+
+  <div class="container-page relative py-10 sm:py-14">
+    <div class="grid gap-8 lg:grid-cols-[1.35fr_1fr] lg:items-center">
+      <div class="animate-in-up">
+        <span class="inline-flex items-center gap-2 rounded-full border border-line bg-elevated/70 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-2 backdrop-blur-sm">
+          <span class="relative flex h-1.5 w-1.5">
+            <span class="absolute inline-flex h-full w-full rounded-full bg-ok opacity-75" style="animation: pulse-dot 1.6s ease-in-out infinite"></span>
+            <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-ok"></span>
+          </span>
+          {t('heroBadge')}
+        </span>
+
+        <h1 class="mt-4 text-3xl font-extrabold leading-[1.15] tracking-tight sm:text-4xl lg:text-[2.75rem]">
+          {t('heroTitleLead')}
+          <span class="gradient-text">{t('heroTitleAccent')}</span>
+        </h1>
+
+        <p class="mt-4 max-w-xl text-sm leading-relaxed text-ink-2 sm:text-base">
+          {t('heroSubtitle')}
+        </p>
+
+        <div class="mt-6 max-w-xl">
+          <SearchBox lang={lang} size="lg" />
+          <p class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-3">
+            <span class="flex items-center gap-1.5"><Icon name="zap" size={12} class="text-accent" />{t('heroHintFast')}</span>
+            <span class="flex items-center gap-1.5"><Icon name="shield" size={12} class="text-ok" />{t('heroHintVerified')}</span>
+            <span class="flex items-center gap-1.5"><Icon name="globe" size={12} class="text-brand" />{t('heroHintBilingual')}</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- "Today's top notifications" panel — the first thing a returning
+           visitor checks, so it gets above-the-fold space. -->
+      {heroJobs.length > 0 && (
+        <aside class="card animate-in-up overflow-hidden p-0 shadow-pop" style="animation-delay:80ms">
+          <div class="flex items-center justify-between border-b border-line bg-surface-2 px-4 py-2.5">
+            <h2 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink">
+              <Icon name="bell" size={14} class="text-accent" />
+              {t('heroTopToday')}
+            </h2>
+            <a href={categoryPath('jobs', lang)} class="text-[11px] font-semibold text-brand hover:underline">
+              {t('viewAll')}
+            </a>
+          </div>
+          <ul class="divide-y divide-line">
+            {heroJobs.map((post) => (
+              <li>
+                <a href={`${categoryPath(post.type, lang)}/${post.slug}`} class="group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-2">
+                  <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-soft text-[11px] font-bold text-brand">
+                    {post.organization.slice(0, 1)}
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="line-clamp-2 text-[13px] font-semibold leading-snug transition-colors group-hover:text-brand">
+                      {post.title}
+                    </span>
+                    <span class="mt-1 flex items-center gap-3 text-[11px] text-ink-3">
+                      {post.totalVacancies && <span>{formatNumber(post.totalVacancies)} {t('posts')}</span>}
+                      {post.lastDate && <span>{t('labelLastDate')}: {formatDate(post.lastDate, lang)}</span>}
+                    </span>
+                  </span>
+                  <Icon name="arrowRight" size={15} class="mt-1 shrink-0 text-ink-3 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+    </div>
+
+    <!-- Stats. See the note on <dl> ordering in the frontmatter above. -->
+    <dl class="mt-9 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {SITE_STATS.map((stat, i) => (
+        <div
+          class="reveal card grid grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-3 p-3.5"
+          data-reveal-delay={String(i * 60)}
+        >
+          <!-- See the <dl> content-model note in the frontmatter: the wrapper
+               div may contain ONLY dt/dd, so the icon lives inside the <dd>. -->
+          <dt class="col-start-2 row-start-2 truncate text-[11px] font-medium text-ink-3">{t(stat.key)}</dt>
+          <dd class="col-span-2 col-start-1 row-start-1 flex items-center gap-3">
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand">
+              <Icon name={(['briefcase', 'trophy', 'ticket', 'users'] as const)[i]} size={17} />
+            </span>
+            <span class="text-base font-extrabold leading-none tabular-nums">{stat.value}</span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+</section>
+
+<!-- ======================================================================
+     Category tiles + leaderboard ad
+     ====================================================================== -->
+<div class="container-page pt-8">
+  <CategoryTiles lang={lang} counts={counts} />
+</div>
+
+<div class="container-page pt-8">
+  <AdSlot slot="home-top-leaderboard" format="leaderboard" label={t('adLabel')} />
+</div>
+
+<!-- ======================================================================
+     Main grid
+     ====================================================================== -->
+<div class="container-page grid gap-8 pt-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+  <!-- ---------------------------------------------------------------- -->
+  <div class="space-y-10">
+    <!-- Latest jobs (dense list) -->
+    <section class="reveal" aria-labelledby="sec-jobs">
+      <div class="section-head">
+        <div>
+          <h2 id="sec-jobs" class="section-title">{SECTION_COPY.jobs.title}</h2>
+          <p class="mt-1 pl-4 text-xs text-ink-3">{SECTION_COPY.jobs.sub}</p>
+        </div>
+        <a href={categoryPath('jobs', lang)} class="btn btn-ghost shrink-0 px-3 py-2 text-xs">
+          {t('viewAll')}
+          <Icon name="arrowRight" size={14} />
+        </a>
+      </div>
+      <div class="card px-4 py-1">
+        {latest.jobs?.length ? (
+          latest.jobs.map((post) => <PostCard post={post} lang={lang} variant="row" showType={false} />)
+        ) : (
+          <p class="py-8 text-center text-sm text-ink-3">{t('noPosts')}</p>
+        )}
+      </div>
+    </section>
+
+    <AdSlot slot="home-mid-rectangle" format="rectangle" label={t('adLabel')} />
+
+    <!-- Results + Admit card side by side -->
+    <div class="grid gap-8 sm:grid-cols-2">
+      {(['results', 'admit-card'] as PostTypeKey[]).map((key) => (
+        <section class="reveal" aria-labelledby={`sec-${key}`}>
+          <div class="section-head mb-3">
+            <h2 id={`sec-${key}`} class="section-title text-base">{SECTION_COPY[key].title}</h2>
+            <a href={categoryPath(key, lang)} class="text-[11px] font-semibold text-brand hover:underline">
+              {t('viewAll')}
+            </a>
+          </div>
+          <div class="card divide-y divide-line px-4 py-1">
+            {latest[key]?.length ? (
+              latest[key].slice(0, 5).map((post) => (
+                <PostCard post={post} lang={lang} variant="compact" />
+              ))
+            ) : (
+              <p class="py-6 text-center text-sm text-ink-3">{t('noPosts')}</p>
+            )}
+          </div>
+        </section>
+      ))}
+    </div>
+
+    <!-- Notifications -->
+    <section class="reveal" aria-labelledby="sec-notification">
+      <div class="section-head">
+        <div>
+          <h2 id="sec-notification" class="section-title">{SECTION_COPY.notification.title}</h2>
+          <p class="mt-1 pl-4 text-xs text-ink-3">{SECTION_COPY.notification.sub}</p>
+        </div>
+        <a href={localizePath('/notification', lang)} class="btn btn-ghost shrink-0 px-3 py-2 text-xs">
+          {t('viewAll')}
+          <Icon name="arrowRight" size={14} />
+        </a>
+      </div>
+      <div class="card px-4 py-1">
+        {latest.notification?.length ? (
+          latest.notification.map((post) => <PostCard post={post} lang={lang} variant="row" showType={false} />)
+        ) : (
+          <p class="py-8 text-center text-sm text-ink-3">{t('noPosts')}</p>
+        )}
+      </div>
+    </section>
+  </div>
+
+  <!-- ---------------------------------------------------------------- -->
+  <aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
+    <div class="card p-4">
+      <h2 class="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink">
+        <Icon name="search" size={14} class="text-brand" />
+        {t('searchTitle')}
+      </h2>
+      <SearchBox lang={lang} />
+    </div>
+
+    <AdSlot slot="home-sidebar-halfpage" format="halfpage" label={t('adLabel')} />
+
+    {sidebarKeys.map((key) =>
+      latest[key]?.length ? (
+        <section class="card reveal p-4" aria-labelledby={`side-${key}`}>
+          <div class="mb-2 flex items-center justify-between">
+            <h2 id={`side-${key}`} class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink">
+              <span
+                class="grid h-6 w-6 place-items-center rounded-md"
+                style={`background:var(--${POST_TYPES[key].accent}-soft); color:var(--${POST_TYPES[key].accent});`}
+              >
+                <Icon name={POST_TYPES[key].icon as any} size={13} />
+              </span>
+              {SECTION_COPY[key].title}
+            </h2>
+            <a href={categoryPath(key, lang)} class="text-[11px] font-semibold text-brand hover:underline">
+              {t('viewAll')}
+            </a>
+          </div>
+          <div class="divide-y divide-line">
+            {latest[key].slice(0, 5).map((post) => (
+              <PostCard post={post} lang={lang} variant="compact" />
+            ))}
+          </div>
+        </section>
+      ) : null,
+    )}
+
+    <!-- Quick links — also the accessible fallback nav when the header
+         dropdown is unusable (no-JS). -->
+    <nav class="card p-4" aria-labelledby="side-links">
+      <h2 id="side-links" class="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink">
+        <Icon name="layers" size={14} class="text-brand" />
+        {t('footerQuickLinks')}
+      </h2>
+      <ul class="flex flex-wrap gap-1.5">
+        {NAV_ORDER.map((key) => (
+          <li>
+            <a href={categoryPath(key, lang)} class="chip">{POST_TYPES[key].short[lang]}</a>
+          </li>
+        ))}
+        <li><a href={localizePath('/about', lang)} class="chip">{t('aboutUs')}</a></li>
+        <li><a href={localizePath('/contact', lang)} class="chip">{t('contact')}</a></li>
+      </ul>
+    </nav>
+  </aside>
+</div>

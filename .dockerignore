@@ -1,0 +1,57 @@
+# ---------------------------------------------------------------------------
+# Docker build context
+# ---------------------------------------------------------------------------
+# The Dockerfile runs `COPY . .`, so without this file the entire working
+# directory — including `.env` — is sent to the daemon and copied into the build
+# stage.
+#
+# That matters for two reasons, and the first one is not about speed:
+#
+#   1. `.env` holds REVALIDATE_SECRET and the WordPress application password.
+#      Baking it into a build layer is exactly the class of leak that
+#      src/lib/env.ts exists to prevent on the application side; the build
+#      context is the other half of the same problem.
+#
+#   2. `node_modules` is hundreds of megabytes. Sending it as context makes
+#      every build slow, and `COPY . .` would then shadow the `npm ci` layer
+#      the Dockerfile deliberately installs first — so a dependency change
+#      would stop invalidating the cache correctly.
+#
+# Keep this list in sync with what the build actually needs: package.json,
+# package-lock.json, src/, public/, scripts/, astro.config.mjs, tsconfig.json.
+# ---------------------------------------------------------------------------
+
+# --- secrets ---------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- installed / generated -------------------------------------------------
+node_modules
+node_modules.*
+dist
+dist.*
+.astro
+.astro.*
+.lighthouse
+
+# --- not needed to build the frontend --------------------------------------
+.git
+.github
+.gitignore
+screenshots
+wordpress
+.workbuddy-ai
+.vscode
+.idea
+
+# NOTE: `deploy/` is deliberately NOT excluded. Docker reads the Dockerfile from
+# the context (here, `deploy/Dockerfile`), and excluding its directory makes the
+# build fail with a confusing "cannot locate Dockerfile" error. It is a few KB.
+
+# --- noise -----------------------------------------------------------------
+*.log
+*.tmp
+out.txt
+.DS_Store
+Thumbs.db

@@ -1,0 +1,43 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PostPage from '@/components/pages/PostPage.astro';
+import NotFound from '@/components/pages/NotFound.astro';
+import { resolvePostType } from '@/lib/post-types';
+import { getPost, getRelated } from '@/lib/wp';
+import { useTranslations } from '@/i18n/utils';
+
+export const prerender = false;
+
+const lang = 'hi' as const;
+const segment = Astro.params.type ?? '';
+const slug = Astro.params.slug ?? '';
+const config = resolvePostType(segment);
+
+const post = config ? await getPost(config.key, slug, lang) : null;
+const related = post ? await getRelated(post, 6) : [];
+const t = useTranslations(lang);
+
+if (!post) Astro.response.status = 404;
+
+const siteUrl = (Astro.site?.toString() ?? 'https://example-govjobs.com').replace(/\/$/, '');
+const shareUrl = config && post ? `${siteUrl}/hi/${config.slug}/${post.slug}` : siteUrl;
+---
+
+<BaseLayout
+  title={post?.seo.title ?? t('notFoundTitle')}
+  description={post?.seo.description ?? t('notFoundBody')}
+  canonicalPath={config && post ? `/${config.slug}/${post.slug}` : '/404'}
+  lang={lang}
+  robots={post ? post.seo.robots : 'noindex, follow'}
+  pageType={post ? 'article' : 'website'}
+  ogImage={post?.seo.ogImage ?? post?.featuredImage?.url}
+  publishedTime={post?.publishedAt}
+  modifiedTime={post?.modifiedAt}
+  showMarquee={false}
+>
+  {post && config ? (
+    <PostPage lang={lang} post={post} related={related} shareUrl={shareUrl} />
+  ) : (
+    <NotFound lang={lang} />
+  )}
+</BaseLayout>

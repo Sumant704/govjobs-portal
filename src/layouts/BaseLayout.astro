@@ -1,0 +1,331 @@
+---
+/**
+ * Base layout: document head, SEO, theme bootstrap, chrome.
+ *
+ * Everything SEO-related is driven by props so a page cannot accidentally ship
+ * without a canonical or hreflang set — `canonicalPath` is required.
+ *
+ * ---------------------------------------------------------------------------
+ * Why the fonts are self-hosted (keep this note here, not in the markup)
+ * ---------------------------------------------------------------------------
+ * Measured on this site, homepage, Lighthouse mobile with simulated throttling:
+ *
+ *     Google Fonts linked    Performance 87   LCP 3.6s   TBT 210ms
+ *     Web fonts blocked      Performance 98   LCP 2.0s   TBT   0ms
+ *
+ * Eleven Performance points and 1.6s of LCP, spent on a third-party origin.
+ * The hero <h1> is the LCP element: it paints in the fallback face, then
+ * repaints when the web font arrives, and that repaint is recorded as a *later*
+ * LCP candidate. The font CSS also costs main-thread time to parse and apply.
+ *
+ * Self-hosting removes the extra DNS lookup, the extra TLS handshake and the
+ * cross-origin round trip, and lets the woff2 be preloaded so it is ready at
+ * first paint and never swaps. Binaries live in public/fonts/, @font-face rules
+ * in src/styles/fonts.css, both produced by scripts/fetch-fonts.mjs.
+ *
+ * Only Latin is preloaded for English pages. Devanagari is ~118 KB and only
+ * /hi needs it, so preloading it everywhere would waste bandwidth on the
+ * majority of visits. Latin-ext is not preloaded either — the browser fetches
+ * it only if the page actually uses a glyph in that range.
+ *
+ * NOTE: HTML comments are shipped to the browser. Anything longer than a line
+ * belongs in this frontmatter block instead, where the build strips it.
+ */
+import '@/styles/global.css';
+
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+import Marquee from '@/components/Marquee.astro';
+import BackToTop from '@/components/BackToTop.astro';
+import type { Lang } from '@/lib/types';
+import { alternatesFor, htmlLang, ogLocale, localizePath } from '@/i18n/utils';
+import { SITE } from '@/lib/site';
+import { FONT_PRELOADS } from '@/lib/font-preloads';
+import { isDegraded } from '@/lib/wp';
+
+export interface Props {
+  /** Page title, without the site suffix. */
+  title: string;
+  description: string;
+  /** Canonical English path, e.g. "/results/ssc-cgl-2026". */
+  canonicalPath: string;
+  lang: Lang;
+  ogImage?: string;
+  /** "index, follow" by default; pass noindex for search result pages. */
+  robots?: string;
+  /** og:type */
+  pageType?: 'website' | 'article';
+  /** ISO timestamp, for og:article:modified_time */
+  modifiedTime?: string;
+  publishedTime?: string;
+  /** Structured data objects, injected as a @graph. */
+  jsonLd?: Record<string, unknown>[];
+  /** Show the notice ticker under the header. */
+  showMarquee?: boolean;
+  /** Override the automatic degraded-state detection (rarely needed). */
+  degraded?: boolean;
+}
+
+const {
+  title,
+  description,
+  canonicalPath,
+  lang,
+  ogImage,
+  robots = 'index, follow',
+  pageType = 'website',
+  modifiedTime,
+  publishedTime,
+  jsonLd = [],
+  showMarquee = true,
+  degraded = isDegraded(),
+} = Astro.props;
+
+const settings = Astro.locals.settings;
+const siteUrl = (Astro.site?.toString() ?? 'https://example-govjobs.com').replace(/\/$/, '');
+
+const canonical = `${siteUrl}${localizePath(canonicalPath, lang)}`;
+const alternates = alternatesFor(canonicalPath, siteUrl);
+
+const fullTitle = canonicalPath === '/' ? `${settings.name} — ${settings.tagline}` : `${title} | ${settings.name}`;
+const image = ogImage?.startsWith('http') ? ogImage : `${siteUrl}/og-default.svg`;
+
+const adsenseClient = import.meta.env.PUBLIC_ADSENSE_CLIENT as string | undefined;
+const adsenseOn = import.meta.env.PUBLIC_ADSENSE_ENABLED !== 'false' && Boolean(adsenseClient);
+const gaId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID as string | undefined;
+
+// Stable id so the JSON-LD graph can cross-reference itself.
+const graph = [
+  ...jsonLd,
+];
+---
+
+<!doctype html>
+<html lang={htmlLang[lang]} class="no-js scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={robots} />
+    <link rel="canonical" href={canonical} />
+
+    <!-- hreflang: tells Google these are translations, not duplicates. Without
+         this, a Hindi page and its English twin cannibalise each other. -->
+    {alternates.map((alt) => <link rel="alternate" hreflang={alt.hreflang} href={alt.href} />)}
+
+    <meta name="theme-color" content="#0d1424" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="light dark" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content={pageType} />
+    <meta property="og:site_name" content={settings.name} />
+    <meta property="og:locale" content={ogLocale[lang]} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+    {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content={SITE.twitter} />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Fonts: self-hosted. @font-face rules in src/styles/fonts.css,
+         binaries in public/fonts/, preload paths in src/lib/font-preloads.ts.
+         All three are generated together by `npm run fonts`, so a rename cannot
+         leave a stale preload pointing at a file that no longer exists. -->
+    {FONT_PRELOADS.always.map((href) => (
+      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+    ))}
+    {lang === 'hi' &&
+      FONT_PRELOADS.hindi.map((href) => (
+        <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+      ))}
+
+    <!-- RSS / sitemap discovery -->
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'Organization',
+            '@id': `${siteUrl}/#organization`,
+            name: settings.name,
+            url: siteUrl,
+            logo: `${siteUrl}/favicon.svg`,
+            email: settings.contactEmail,
+          },
+          {
+            '@type': 'WebSite',
+            '@id': `${siteUrl}/#website`,
+            url: siteUrl,
+            name: settings.name,
+            description: settings.tagline,
+            inLanguage: htmlLang[lang],
+            publisher: { '@id': `${siteUrl}/#organization` },
+            potentialAction: {
+              '@type': 'SearchAction',
+              target: { '@type': 'EntryPoint', urlTemplate: `${siteUrl}${localizePath('/search', lang)}?q={search_term_string}` },
+              'query-input': 'required name=search_term_string',
+            },
+          },
+          ...graph,
+        ],
+      })}
+    />
+
+    {adsenseOn && (
+      <script
+        async
+        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
+        crossorigin="anonymous"
+      />
+    )}
+
+    {gaId && (
+      <>
+        <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
+        <script is:inline define:vars={{ gaId }}>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', gaId, { anonymize_ip: true });
+        </script>
+      </>
+    )}
+
+    <!-- Theme bootstrap. Runs before first paint so there is never a flash of
+         the wrong theme, and before CSS-dependent layout so `no-js` can be
+         dropped for the reveal animations. -->
+    <script is:inline>
+      (function () {
+        var root = document.documentElement;
+        try {
+          var stored = localStorage.getItem('theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (stored === 'dark' || (stored === null && prefersDark)) root.classList.add('dark');
+          else root.classList.remove('dark');
+        } catch (e) {
+          /* Private mode / storage disabled — system default is fine. */
+        }
+        root.classList.remove('no-js');
+      })();
+    </script>
+  </head>
+
+  <body class="flex min-h-dvh flex-col bg-bg text-ink antialiased">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-lg focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-brand-ink"
+    >
+      Skip to content
+    </a>
+
+    <Header lang={lang} currentPath={canonicalPath} />
+
+    {showMarquee && <Marquee lang={lang} notices={settings.notices} />}
+
+    {degraded && (
+      <div class="no-print border-b border-amber/30 bg-amber-soft">
+        <div class="container-page flex items-center gap-2 py-2 text-xs font-medium text-amber">
+          <span class="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-amber text-[10px] font-bold text-white">!</span>
+          {lang === 'hi'
+            ? 'कैश्ड स्नैपशॉट दिखाया जा रहा है — कंटेंट सर्वर जुड़ते ही लाइव अपडेट शुरू हो जाएंगे।'
+            : 'Showing a cached snapshot — live updates resume when the content server reconnects.'}
+        </div>
+      </div>
+    )}
+
+    <main id="main" class="flex-1 pb-16">
+      <slot />
+    </main>
+
+    <Footer lang={lang} />
+    <BackToTop lang={lang} />
+  </body>
+</html>
+
+<script>
+  /**
+   * Scroll reveal.
+   *
+   * One shared IntersectionObserver for every `.reveal` on the page, and each
+   * element is unobserved once it has played — otherwise the observer keeps
+   * firing on scroll and the animation stutters on low-end Android, which is
+   * most of this audience.
+   */
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const targets = document.querySelectorAll<HTMLElement>('.reveal');
+
+  if (reduceMotion || !('IntersectionObserver' in window)) {
+    targets.forEach((el) => el.setAttribute('data-reveal', 'in'));
+  } else {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const el = entry.target as HTMLElement;
+          const delay = Number(el.dataset.revealDelay ?? 0);
+          window.setTimeout(() => el.setAttribute('data-reveal', 'in'), delay);
+          observer.unobserve(el);
+        }
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.05 },
+    );
+    targets.forEach((el) => observer.observe(el));
+
+    /**
+     * Safety net.
+     *
+     * `.reveal` starts at `opacity: 0`, so anything that stops the observer
+     * from firing leaves the content permanently invisible — a much worse
+     * failure than a missing animation. This guarantees the content appears
+     * regardless: any element still hidden two seconds in is revealed, and the
+     * observer is disconnected so it cannot fight back.
+     *
+     * The 2s budget is generous on purpose. On a slow connection the fonts and
+     * images land late and the user is still looking at the top of the page, so
+     * a reveal that fires "too early" is invisible to them anyway.
+     */
+    window.setTimeout(() => {
+      observer.disconnect();
+      document.querySelectorAll('.reveal:not([data-reveal="in"])').forEach((el) => {
+        el.setAttribute('data-reveal', 'in');
+      });
+    }, 2000);
+  }
+
+  // Theme toggle — kept here rather than in the component so the button can be
+  // rendered in several places (header, mobile nav) with one listener.
+  document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      try {
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      } catch {
+        /* ignore */
+      }
+      // Keep the browser UI colour in sync without a reload.
+      document
+        .querySelectorAll('meta[name="theme-color"]')
+        .forEach((meta) => meta.setAttribute('content', isDark ? '#0d1424' : '#ffffff'));
+    });
+  });
+</script>

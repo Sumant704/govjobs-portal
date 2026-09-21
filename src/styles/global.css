@@ -1,0 +1,786 @@
+@import 'tailwindcss';
+@import './fonts.css';
+
+/* ---------------------------------------------------------------------------
+   Metric-matched fallback fonts
+
+   The real fonts are self-hosted and preloaded, so on a warm connection they
+   are available at first paint. On a cold, slow one they may not be, and
+   `font-display: swap` means the fallback renders first. A plain `Arial`
+   fallback has different metrics from Inter, so swapping reflows every line of
+   text — a real CLS hit on a text-heavy page.
+
+   These overrides make the fallback occupy almost exactly the same space as
+   Inter, so the swap is visually near-invisible and layout does not move.
+   Values are the standard capsize-derived metrics for Arial-as-Inter.
+--------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans'), local('Arimo');
+  size-adjust: 107.11%;
+  ascent-override: 90.2%;
+  descent-override: 22.48%;
+  line-gap-override: 0%;
+  font-display: swap;
+}
+
+/* ---------------------------------------------------------------------------
+   No metric-matched fallback for Devanagari — `font-display: optional` instead
+
+   A metric-matched face was built here first, and it did not hold. size-adjust
+   was derived by measuring one Hindi string in the browser (Nirmala UI renders
+   it 10% wider than Noto Sans Devanagari, so size-adjust: 90.57%), which fixed
+   the /hi/admit-card listing — CLS 0.191 -> 0.001 — but left the
+   /hi/admit-card/* post page shifting at 0.153. Devanagari line-breaking varies
+   enough between strings that a single measured ratio is not a metric match.
+
+   So the Devanagari faces are generated with `font-display: optional` instead
+   (see scripts/fetch-fonts.mjs). The browser uses the fallback for the whole
+   page load and never swaps, which removes the reflow rather than shrinking it.
+   The font is still downloaded and cached, so it applies from the second page
+   onward — and readers of a jobs portal are repeat visitors.
+
+   Inter keeps `font-display: swap` plus the metric-matched 'Inter Fallback'
+   above, because that one is verified: the homepage holds CLS 0 with Inter
+   swapping, and Inter text is on the LCP path so it should apply immediately.
+--------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   Dark mode is class-based (`.dark` on <html>), set by an inline script in
+   <head> before first paint so there is no flash of the wrong theme.
+--------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Design tokens
+   Light and dark are the same semantic names with different values, so a
+   component never needs a `dark:` variant just to change a surface colour.
+--------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --bg: #f4f6fb;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #eef1f8;
+  --surface-3: #e3e8f3;
+  --line: #dde3ef;
+  --line-strong: #c6cfe2;
+
+  --ink: #0c1322;
+  --ink-2: #44506a;
+  --ink-3: #5d6a84;
+
+  --brand: #1d4ed8;
+  --brand-2: #3b82f6;
+  --brand-ink: #ffffff;
+  --brand-soft: #e6edff;
+
+  --accent: #bd4403;
+  --accent-2: #f97316;
+  --accent-soft: #fff0e4;
+  /* Text colour to use ON an --accent background. Light mode's accent is dark
+     enough for white; dark mode's is not (see below). */
+  --accent-ink: #ffffff;
+
+  --ok: #15803d;
+  --ok-soft: #e3f6e9;
+  --violet: #6d28d9;
+  --violet-soft: #efe8ff;
+  --cyan: #0e7490;
+  --cyan-soft: #e0f5fa;
+  --rose: #be123c;
+  --rose-soft: #ffe8ee;
+  --amber: #a16207;
+  --amber-soft: #fdf3d7;
+
+  --ring: #1d4ed8;
+  --shadow-sm: 0 1px 2px rgb(12 19 34 / 0.06), 0 1px 3px rgb(12 19 34 / 0.04);
+  --shadow-md: 0 4px 14px -2px rgb(12 19 34 / 0.09), 0 2px 6px -2px rgb(12 19 34 / 0.05);
+  --shadow-lg: 0 18px 40px -12px rgb(12 19 34 / 0.22), 0 4px 12px -4px rgb(12 19 34 / 0.1);
+  --glass: rgb(255 255 255 / 0.82);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg: #070b14;
+  --bg-elevated: #0d1424;
+  --surface: #0d1424;
+  --surface-2: #141d31;
+  --surface-3: #1c2740;
+  --line: #223050;
+  --line-strong: #33456b;
+
+  --ink: #eef3fb;
+  --ink-2: #a6b3ca;
+  --ink-3: #8290a9;
+
+  --brand: #5389ff;
+  --brand-2: #6ea0ff;
+  --brand-ink: #04102b;
+  --brand-soft: #12224a;
+
+  --accent: #ff9d3d;
+  --accent-2: #ffb266;
+  --accent-soft: #3a2410;
+  --accent-ink: #1a0d02;
+
+  --ok: #34d399;
+  --ok-soft: #0d2f24;
+  --violet: #a78bfa;
+  --violet-soft: #241a45;
+  --cyan: #38bdf8;
+  --cyan-soft: #0c2a3a;
+  --rose: #fb7185;
+  --rose-soft: #3a1220;
+  --amber: #fbbf24;
+  --amber-soft: #33270a;
+
+  --ring: #6ea0ff;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 6px 18px -4px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 22px 48px -16px rgb(0 0 0 / 0.7);
+  --glass: rgb(10 16 30 / 0.78);
+}
+
+/* `@theme inline` keeps the utility value as `var(--surface)` rather than
+   baking in the light-mode hex, which is what lets the theme swap at runtime. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-cyan: var(--cyan);
+  --color-cyan-soft: var(--cyan-soft);
+  --color-rose: var(--rose);
+  --color-rose-soft: var(--rose-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+
+  /* 'Inter Fallback' sits directly after Inter so the swap is metric-matched;
+     Noto Sans Devanagari follows for Hindi glyphs, which Inter does not carry.
+     The browser falls through per glyph, so a mixed-script line renders each
+     script in the right face. */
+  --font-sans: 'Inter', 'Inter Fallback', 'Noto Sans Devanagari', ui-sans-serif, system-ui,
+    -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-pop: var(--shadow-md);
+  --shadow-float: var(--shadow-lg);
+
+  --radius-card: 14px;
+}
+
+/* ---------------------------------------------------------------------------
+   Base
+--------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+
+  /* Visible, consistent focus ring for keyboard users only. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--brand);
+    color: var(--brand-ink);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--surface-2);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
+    border: 2px solid var(--surface-2);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--ink-3);
+  }
+
+  /* Anchor offset so in-page links don't hide under the sticky header. */
+  :target {
+    scroll-margin-top: 90px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Components
+--------------------------------------------------------------------------- */
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Interactive card: lifts on hover, but only where hover is meaningful. */
+  .card-hover {
+    transition:
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.22s ease,
+      border-color 0.22s ease;
+  }
+  /* NOTE: no `will-change: transform` here, deliberately.
+     It looks like an optimisation and is the opposite at this scale: the
+     homepage renders ~40 cards, and a will-change hint promotes each one to its
+     own compositor layer, which the browser then has to keep in sync. Chrome
+     also caps the layer count and silently ignores the hint past that, so the
+     cost is paid and the benefit is not. Lighthouse measured 1675 ms of
+     "Style & Layout" on the Hindi homepage; a hover transition this simple does
+     not need the hint at all. */
+  @media (hover: hover) {
+    .card-hover:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--line-strong);
+    }
+  }
+  .card-hover:active {
+    transform: translateY(-1px) scale(0.998);
+  }
+
+  .glass {
+    background: var(--glass);
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 1;
+    padding: 0.7rem 1.1rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition:
+      transform 0.15s ease,
+      background-color 0.18s ease,
+      box-shadow 0.18s ease,
+      border-color 0.18s ease;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn-primary {
+    background: var(--brand);
+    color: var(--brand-ink);
+    box-shadow: 0 2px 8px -2px color-mix(in oklab, var(--brand) 55%, transparent);
+  }
+  @media (hover: hover) {
+    .btn-primary:hover {
+      background: color-mix(in oklab, var(--brand) 86%, black);
+      box-shadow: 0 6px 18px -6px color-mix(in oklab, var(--brand) 70%, transparent);
+    }
+  }
+
+  .btn-accent {
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: 0 2px 8px -2px color-mix(in oklab, var(--accent) 55%, transparent);
+  }
+  @media (hover: hover) {
+    .btn-accent:hover {
+      background: color-mix(in oklab, var(--accent) 86%, black);
+    }
+  }
+
+  .btn-ghost {
+    background: var(--surface-2);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+  @media (hover: hover) {
+    .btn-ghost:hover {
+      background: var(--surface-3);
+      border-color: var(--line-strong);
+    }
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--brand);
+    border-color: color-mix(in oklab, var(--brand) 40%, var(--line));
+  }
+  @media (hover: hover) {
+    .btn-outline:hover {
+      background: var(--brand-soft);
+    }
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    text-decoration: none;
+    transition: all 0.16s ease;
+  }
+  @media (hover: hover) {
+    .chip:hover {
+      background: var(--brand-soft);
+      border-color: color-mix(in oklab, var(--brand) 35%, var(--line));
+      color: var(--brand);
+    }
+  }
+
+  /* --- Section heading ------------------------------------------------- */
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+  .section-title::before {
+    content: '';
+    width: 4px;
+    height: 1.15em;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--brand-2), var(--brand));
+  }
+
+  /* --- Data tables ------------------------------------------------------ */
+  /* These carry the actual payload of every post, so they get real styling. */
+  .table-wrap {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .table-gov {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .table-gov thead th {
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: left;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .table-gov tbody td {
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-2);
+    vertical-align: top;
+  }
+  .table-gov tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .table-gov tbody tr {
+    transition: background-color 0.15s ease;
+  }
+  @media (hover: hover) {
+    .table-gov tbody tr:hover {
+      background: var(--surface-2);
+    }
+  }
+  .table-gov td:first-child {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .table-gov .is-emphasis td {
+    background: color-mix(in oklab, var(--accent) 9%, transparent);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .table-gov tfoot td {
+    background: var(--surface-2);
+    font-weight: 700;
+    color: var(--ink);
+    padding: 0.7rem 0.9rem;
+    border-top: 1px solid var(--line);
+  }
+
+  /* --- Article body (rendered from WordPress HTML) ---------------------- */
+  .prose-gov {
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+    line-height: 1.75;
+  }
+  .prose-gov > * + * {
+    margin-top: 1rem;
+  }
+  .prose-gov h2 {
+    font-size: 1.15rem;
+    margin-top: 1.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .prose-gov h3 {
+    font-size: 1rem;
+    margin-top: 1.5rem;
+    color: var(--ink);
+  }
+  .prose-gov strong {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .prose-gov a {
+    color: var(--brand);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+  }
+  .prose-gov a:hover {
+    text-decoration-thickness: 2px;
+  }
+  .prose-gov ul,
+  .prose-gov ol {
+    padding-left: 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .prose-gov ul {
+    list-style: disc;
+  }
+  .prose-gov ol {
+    list-style: decimal;
+  }
+  .prose-gov li::marker {
+    color: var(--brand);
+    font-weight: 700;
+  }
+  .prose-gov img {
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    max-width: 100%;
+    height: auto;
+  }
+  .prose-gov table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .prose-gov th,
+  .prose-gov td {
+    border: 1px solid var(--line);
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+  }
+  .prose-gov th {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+  .prose-gov em {
+    color: var(--ink-3);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Utilities & effects
+--------------------------------------------------------------------------- */
+@utility gradient-text {
+  background: linear-gradient(100deg, var(--brand-2), var(--violet) 55%, var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Scroll-reveal: elements start hidden, `data-reveal="in"` is added by an
+   IntersectionObserver in BaseLayout. No-JS users get the content because the
+   `no-js` class on <html> is removed by the same inline script. */
+@layer utilities {
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .reveal[data-reveal='in'] {
+    opacity: 1;
+    transform: none;
+  }
+  html.no-js .reveal {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .mesh-hero {
+    background-image:
+      radial-gradient(60% 80% at 12% 0%, color-mix(in oklab, var(--brand) 26%, transparent) 0%, transparent 60%),
+      radial-gradient(50% 70% at 88% 10%, color-mix(in oklab, var(--violet) 22%, transparent) 0%, transparent 62%),
+      radial-gradient(45% 60% at 50% 100%, color-mix(in oklab, var(--accent) 16%, transparent) 0%, transparent 65%);
+  }
+
+  .grid-lines {
+    background-image:
+      linear-gradient(to right, color-mix(in oklab, var(--line) 70%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--line) 70%, transparent) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(70% 60% at 50% 30%, black, transparent 75%);
+  }
+
+  .marquee-track {
+    display: inline-flex;
+    gap: 2.5rem;
+    white-space: nowrap;
+    animation: marquee 42s linear infinite;
+  }
+  .marquee:hover .marquee-track,
+  .marquee:focus-within .marquee-track {
+    animation-play-state: paused;
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 0%,
+      var(--surface-3) 50%,
+      var(--surface-2) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+
+  .underline-sweep {
+    position: relative;
+  }
+  .underline-sweep::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -3px;
+    height: 2px;
+    width: 100%;
+    border-radius: 2px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (hover: hover) {
+    .underline-sweep:hover::after {
+      transform: scaleX(1);
+    }
+  }
+  .underline-sweep[aria-current='page']::after {
+    transform: scaleX(1);
+  }
+
+  .animate-in-up {
+    animation: in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* The track is duplicated in markup, so -50% is one seamless loop. */
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Print — candidates print notification pages and take them to cyber cafés.
+   Strip the chrome, keep the tables, make the links readable on paper.
+--------------------------------------------------------------------------- */
+@media print {
+  :root {
+    --bg: #fff;
+    --surface: #fff;
+    --surface-2: #f5f5f5;
+    --ink: #000;
+    --ink-2: #222;
+    --line: #bbb;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .table-gov thead th {
+    background: #eee !important;
+  }
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.7em;
+    color: #555;
+    word-break: break-all;
+  }
+  .card {
+    box-shadow: none;
+    border-color: #ccc;
+  }
+}

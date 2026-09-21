@@ -1,0 +1,84 @@
+---
+/**
+ * Reading-progress bar + back-to-top button.
+ *
+ * Both are purely additive: with JS off nothing renders awkwardly, because the
+ * elements are hidden until the script reveals them.
+ */
+import Icon from '@/components/Icon.astro';
+import type { Lang } from '@/lib/types';
+import { useTranslations } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+---
+
+<div class="no-print pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5">
+  <!-- Scaled with `transform`, not `width`.
+       A width transition re-runs layout on every scroll frame — on a
+       text-heavy page that is the single most expensive thing a scroll handler
+       can do. `scaleX` is handled on the compositor and costs nothing.
+       `origin-left` keeps it anchored to the left edge. -->
+  <div
+    data-reading-progress
+    class="h-full w-full origin-left scale-x-0 bg-gradient-to-r from-brand-2 via-violet to-accent-2"
+  ></div>
+</div>
+
+<button
+  type="button"
+  data-back-to-top
+  hidden
+  aria-label={t('backToTop')}
+  title={t('backToTop')}
+  class="no-print group fixed bottom-5 right-4 z-40 grid h-11 w-11 translate-y-2 place-items-center rounded-full border border-line bg-elevated text-ink-2 opacity-0 shadow-float transition-all duration-300 hover:border-brand hover:text-brand sm:bottom-6 sm:right-6"
+>
+  <Icon name="arrowUp" size={19} class="transition-transform duration-200 group-hover:-translate-y-0.5" />
+</button>
+
+<script>
+  const progress = document.querySelector<HTMLElement>('[data-reading-progress]');
+  const button = document.querySelector<HTMLButtonElement>('[data-back-to-top]');
+
+  const onScroll = () => {
+    const scrolled = window.scrollY;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+
+    if (progress) {
+      const ratio = max > 0 ? Math.min(1, scrolled / max) : 0;
+      // `scaleX` writes a compositor-only property. Writing `width` here would
+      // invalidate layout for the whole document on every frame.
+      progress.style.transform = `scaleX(${ratio})`;
+    }
+
+    if (button) {
+      const show = scrolled > 700;
+      button.hidden = !show;
+      if (show) requestAnimationFrame(() => button.classList.remove('opacity-0', 'translate-y-2'));
+      else button.classList.add('opacity-0', 'translate-y-2');
+    }
+  };
+
+  let ticking = false;
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        onScroll();
+        ticking = false;
+      });
+    },
+    { passive: true },
+  );
+
+  onScroll();
+
+  button?.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>

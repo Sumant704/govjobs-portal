@@ -1,0 +1,242 @@
+---
+import Icon from '@/components/Icon.astro';
+import LangSwitch from '@/components/LangSwitch.astro';
+import ThemeToggle from '@/components/ThemeToggle.astro';
+import type { Lang } from '@/lib/types';
+import { POST_TYPES, NAV_ORDER, categoryPath } from '@/lib/post-types';
+import { useTranslations, localizePath } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+  /** Canonical (English) path of the current page, e.g. "/results/ssc-cgl-2026". */
+  currentPath: string;
+}
+
+const { lang, currentPath } = Astro.props;
+const t = useTranslations(lang);
+const settings = Astro.locals.settings;
+
+const homeHref = localizePath('/', lang);
+
+/** Nav items: the six primary categories, then a "more" overflow. */
+const primary = NAV_ORDER.slice(0, 6).map((key) => ({
+  href: categoryPath(key, lang),
+  label: POST_TYPES[key].label[lang],
+  canonical: `/${POST_TYPES[key].slug}`,
+  icon: POST_TYPES[key].icon,
+}));
+
+const overflow = [
+  { href: localizePath('/notification', lang), label: POST_TYPES.notification.label[lang], canonical: '/notification', icon: POST_TYPES.notification.icon },
+  { href: localizePath('/search', lang), label: t('navSearch'), canonical: '/search', icon: 'search' },
+  { href: localizePath('/about', lang), label: t('aboutUs'), canonical: '/about', icon: 'globe' },
+  { href: localizePath('/contact', lang), label: t('contact'), canonical: '/contact', icon: 'mail' },
+];
+
+const isActive = (canonical: string) =>
+  currentPath === canonical || currentPath.startsWith(`${canonical}/`);
+---
+
+<header class="sticky top-0 z-50 no-print">
+  <!-- Utility strip: language + theme + contact. Hidden on the smallest screens. -->
+  <div class="hidden border-b border-line bg-surface-2 text-ink-3 md:block">
+    <div class="container-page flex h-9 items-center justify-between text-xs">
+      <p class="flex items-center gap-1.5">
+        <Icon name="shield" size={13} class="text-ok" />
+        <span>{t('footerDisclaimerShort')}</span>
+      </p>
+      <div class="flex items-center gap-4">
+        <a href={`mailto:${settings.contactEmail}`} class="flex items-center gap-1.5 transition-colors hover:text-brand">
+          <Icon name="mail" size={13} />
+          <span>{settings.contactEmail}</span>
+        </a>
+        <LangSwitch lang={lang} currentPath={currentPath} variant="text" />
+        <ThemeToggle lang={lang} variant="text" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Main bar -->
+  <div class="glass border-b border-line">
+    <div class="container-page flex h-16 items-center gap-3">
+      <!-- Brand -->
+      <a href={homeHref} class="group flex shrink-0 items-center gap-2.5" aria-label={settings.name}>
+        <span
+          class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-brand-2 to-brand text-white shadow-pop transition-transform duration-300 group-hover:scale-105"
+        >
+          <Icon name="layers" size={22} strokeWidth={2.1} />
+        </span>
+        <span class="flex flex-col leading-none">
+          <span class="text-lg font-extrabold tracking-tight">{settings.name}</span>
+          <span class="mt-0.5 hidden text-[10px] font-medium uppercase tracking-wider text-ink-3 sm:block">
+            {settings.tagline}
+          </span>
+        </span>
+      </a>
+
+      <!-- Desktop nav -->
+      <nav class="ml-auto hidden items-center gap-0.5 lg:flex" aria-label={t('menu')}>
+        <a
+          href={homeHref}
+          aria-current={currentPath === '/' ? 'page' : undefined}
+          class:list={[
+            'underline-sweep rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
+            currentPath === '/' ? 'text-brand' : 'text-ink-2 hover:text-brand',
+          ]}
+        >
+          {t('navHome')}
+        </a>
+        {primary.map((item) => (
+          <a
+            href={item.href}
+            aria-current={isActive(item.canonical) ? 'page' : undefined}
+            class:list={[
+              'underline-sweep rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
+              isActive(item.canonical) ? 'text-brand' : 'text-ink-2 hover:text-brand',
+            ]}
+          >
+            {item.label}
+          </a>
+        ))}
+
+        <!-- Overflow -->
+        <div class="relative" data-dropdown>
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold text-ink-2 transition-colors hover:text-brand"
+            aria-expanded="false"
+            aria-haspopup="true"
+            data-dropdown-trigger
+          >
+            {t('navMore')}
+            <Icon name="chevronDown" size={15} class="transition-transform duration-200" data-dropdown-caret />
+          </button>
+          <div
+            class="invisible absolute right-0 top-full z-50 mt-2 w-56 origin-top-right scale-95 rounded-xl border border-line bg-elevated p-1.5 opacity-0 shadow-float transition-all duration-200"
+            data-dropdown-menu
+          >
+            {overflow.map((item) => (
+              <a
+                href={item.href}
+                class="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand"
+              >
+                <Icon name={item.icon as any} size={16} class="text-ink-3" />
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      <!-- Actions -->
+      <div class="ml-auto flex items-center gap-1.5 lg:ml-2">
+        <a
+          href={localizePath('/search', lang)}
+          class="grid h-9 w-9 place-items-center rounded-lg text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand"
+          aria-label={t('searchTitle')}
+        >
+          <Icon name="search" size={19} />
+        </a>
+        <span class="hidden md:contents">
+          <LangSwitch lang={lang} currentPath={currentPath} variant="compact" />
+          <ThemeToggle lang={lang} variant="compact" />
+        </span>
+        <button
+          type="button"
+          class="grid h-9 w-9 place-items-center rounded-lg text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand lg:hidden"
+          aria-label={t('menu')}
+          aria-expanded="false"
+          aria-controls="mobile-nav"
+          data-mobile-toggle
+        >
+          <Icon name="menu" size={20} data-mobile-icon-open />
+          <Icon name="close" size={20} class="hidden" data-mobile-icon-close />
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile nav -->
+  <div
+    id="mobile-nav"
+    class="grid grid-rows-[0fr] overflow-hidden border-b border-line bg-elevated transition-[grid-template-rows] duration-300 ease-out lg:hidden"
+    data-mobile-nav
+  >
+    <div class="min-h-0">
+      <nav class="container-page grid grid-cols-2 gap-2 py-4" aria-label={t('menu')}>
+        <a
+          href={homeHref}
+          class="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-3 text-sm font-semibold transition-colors hover:border-brand hover:text-brand"
+        >
+          <Icon name="layers" size={17} class="text-brand" />
+          {t('navHome')}
+        </a>
+        {[...primary, ...overflow].map((item) => (
+          <a
+            href={item.href}
+            class="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-3 text-sm font-semibold transition-colors hover:border-brand hover:text-brand"
+          >
+            <Icon name={item.icon as any} size={17} class="text-brand" />
+            <span class="truncate">{item.label}</span>
+          </a>
+        ))}
+      </nav>
+      <div class="container-page flex items-center gap-2 pb-4 md:hidden">
+        <LangSwitch lang={lang} currentPath={currentPath} variant="compact" />
+        <ThemeToggle lang={lang} variant="compact" />
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  // --- Dropdown ------------------------------------------------------------
+  const dropdown = document.querySelector('[data-dropdown]');
+  if (dropdown) {
+    const trigger = dropdown.querySelector<HTMLButtonElement>('[data-dropdown-trigger]')!;
+    const menu = dropdown.querySelector<HTMLElement>('[data-dropdown-menu]')!;
+    const caret = dropdown.querySelector<SVGElement>('[data-dropdown-caret]');
+
+    const setOpen = (open: boolean) => {
+      trigger.setAttribute('aria-expanded', String(open));
+      menu.classList.toggle('invisible', !open);
+      menu.classList.toggle('opacity-0', !open);
+      menu.classList.toggle('scale-95', !open);
+      caret?.classList.toggle('rotate-180', open);
+    };
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setOpen(trigger.getAttribute('aria-expanded') !== 'true');
+    });
+    document.addEventListener('click', () => setOpen(false));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') setOpen(false);
+    });
+  }
+
+  // --- Mobile nav ----------------------------------------------------------
+  const toggle = document.querySelector<HTMLButtonElement>('[data-mobile-toggle]');
+  const panel = document.querySelector<HTMLElement>('[data-mobile-nav]');
+  if (toggle && panel) {
+    const iconOpen = toggle.querySelector('[data-mobile-icon-open]');
+    const iconClose = toggle.querySelector('[data-mobile-icon-close]');
+    const setOpen = (open: boolean) => {
+      toggle.setAttribute('aria-expanded', String(open));
+      panel.classList.toggle('grid-rows-[0fr]', !open);
+      panel.classList.toggle('grid-rows-[1fr]', open);
+      iconOpen?.classList.toggle('hidden', open);
+      iconClose?.classList.toggle('hidden', !open);
+    };
+    toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+  }
+
+  // --- Highlight the current nav item on scroll for long pages -------------
+  // (Cheap, and only runs if the page actually has in-page sections.)
+</script>
+
+<script is:inline>
+  // Dropdown/mobile nav are progressively enhanced: without JS the mobile
+  // panel stays collapsed, so also make the header nav reachable via the
+  // footer (which always renders the full category list).
+</script>

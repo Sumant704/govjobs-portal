@@ -1,0 +1,185 @@
+---
+/**
+ * The four structured tables that carry the actual payload of a post.
+ *
+ * These are rendered from ACF repeater data, never from free text — which is
+ * the whole point of the WordPress field design. A row that exists here is a
+ * row an editor filled in; empty groups render nothing at all rather than an
+ * empty table.
+ */
+import Icon from '@/components/Icon.astro';
+import type { GovPost, Lang } from '@/lib/types';
+import { formatAmount, formatDate, formatNumber } from '@/lib/format';
+import { useTranslations } from '@/i18n/utils';
+
+interface Props {
+  post: GovPost;
+  lang: Lang;
+}
+const { post, lang } = Astro.props;
+const t = useTranslations(lang);
+
+const hasDates = post.importantDates.length > 0;
+const hasFees = post.applicationFee.length > 0;
+const hasAge = Boolean(post.ageLimit && (post.ageLimit.min || post.ageLimit.max));
+const hasVacancy = Boolean(post.vacancy && post.vacancy.rows.length > 0);
+---
+
+<div class="space-y-6">
+  {hasDates && (
+    <section id="important-dates" class="scroll-mt-24">
+      <h2 class="section-title mb-3">
+        <Icon name="calendar" size={17} class="text-brand" />
+        {t('tableImportantDates')}
+      </h2>
+      <div class="table-wrap">
+        <table class="table-gov">
+          <thead>
+            <tr>
+              <th scope="col">{t('thEvent')}</th>
+              <th scope="col" class="w-40 text-right">{t('thDate')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {post.importantDates.map((row) => (
+              <tr class:list={[row.emphasis && 'is-emphasis']}>
+                <td>{row.label}</td>
+                <td class="text-right font-medium tabular-nums">{formatDate(row.value, lang)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
+
+  {hasFees && (
+    <section id="application-fee" class="scroll-mt-24">
+      <h2 class="section-title mb-3">
+        <Icon name="file" size={17} class="text-brand" />
+        {t('tableApplicationFee')}
+      </h2>
+      <div class="table-wrap">
+        <table class="table-gov">
+          <thead>
+            <tr>
+              <th scope="col">{t('thCategory')}</th>
+              <th scope="col" class="w-36 text-right">{t('thAmount')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {post.applicationFee.map((row) => (
+              <tr>
+                <td>{row.category}</td>
+                <td class="text-right font-medium tabular-nums">
+                  {row.free ? (
+                    <span class="pill bg-ok-soft text-ok">{t('free')}</span>
+                  ) : (
+                    formatAmount(row.amount)
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
+
+  {hasAge && post.ageLimit && (
+    <section id="age-limit" class="scroll-mt-24">
+      <h2 class="section-title mb-3">
+        <Icon name="users" size={17} class="text-brand" />
+        {t('tableAgeLimit')}
+      </h2>
+      <div class="table-wrap">
+        <table class="table-gov">
+          <tbody>
+            <tr>
+              <td>{t('labelMinAge')}</td>
+              <td class="text-right font-medium">{post.ageLimit.min}</td>
+            </tr>
+            <tr>
+              <td>{t('labelMaxAge')}</td>
+              <td class="text-right font-medium">{post.ageLimit.max}</td>
+            </tr>
+            {post.ageLimit.asOn && (
+              <tr>
+                <td>{t('labelAgeAsOn')}</td>
+                <td class="text-right font-medium">{formatDate(post.ageLimit.asOn, lang)}</td>
+              </tr>
+            )}
+            {post.ageLimit.relaxation && (
+              <tr>
+                <td>{t('labelAgeRelaxation')}</td>
+                <td class="text-right text-[13px] leading-relaxed">{post.ageLimit.relaxation}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
+
+  {hasVacancy && post.vacancy && (
+    <section id="vacancy-details" class="scroll-mt-24">
+      <h2 class="section-title mb-3">
+        <Icon name="briefcase" size={17} class="text-brand" />
+        {t('tableVacancy')}
+      </h2>
+      <div class="table-wrap">
+        <table class="table-gov">
+          <thead>
+            <tr>
+              <th scope="col">{t('thPostName')}</th>
+              <th scope="col" class="w-32 text-right">{t('thNoOfPosts')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {post.vacancy.rows.map((row) => (
+              <tr>
+                <td>{row.post}</td>
+                <td class="text-right font-medium tabular-nums">{formatNumber(row.posts)}</td>
+              </tr>
+            ))}
+          </tbody>
+          {post.vacancy.total && (
+            <tfoot>
+              <tr>
+                <td>{t('thTotal')}</td>
+                <td class="text-right tabular-nums">{formatNumber(post.vacancy.total)}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </section>
+  )}
+
+  {(post.qualification || post.jobLocation) && (
+    <section id="eligibility" class="scroll-mt-24">
+      <h2 class="section-title mb-3">
+        <Icon name="check" size={17} class="text-brand" />
+        {t('tableEligibility')}
+      </h2>
+      <div class="table-wrap">
+        <table class="table-gov">
+          <tbody>
+            {post.qualification && (
+              <tr>
+                <td class="w-40">{t('labelQualification')}</td>
+                <td>{post.qualification}</td>
+              </tr>
+            )}
+            {post.jobLocation && (
+              <tr>
+                <td>{t('labelLocation')}</td>
+                <td>{post.jobLocation}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
+</div>

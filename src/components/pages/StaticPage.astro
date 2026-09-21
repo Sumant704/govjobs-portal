@@ -1,0 +1,69 @@
+---
+import Icon from '@/components/Icon.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import type { Lang } from '@/lib/types';
+import { renderStaticBody, renderStaticDescription, type StaticPage as StaticPageData } from '@/content/static-pages';
+import { formatDate } from '@/lib/format';
+import { localizePath } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+  page: StaticPageData;
+}
+const { lang, page } = Astro.props;
+const settings = Astro.locals.settings;
+
+const body = renderStaticBody(page, lang, { site: settings.name, email: settings.contactEmail });
+const description = renderStaticDescription(page, lang, settings.name);
+
+const linkFor = (key: string) => localizePath(`/${key}`, lang);
+const others = [
+  { key: 'about', label: lang === 'hi' ? 'हमारे बारे में' : 'About Us' },
+  { key: 'contact', label: lang === 'hi' ? 'संपर्क करें' : 'Contact Us' },
+  { key: 'privacy-policy', label: lang === 'hi' ? 'गोपनीयता नीति' : 'Privacy Policy' },
+  { key: 'disclaimer', label: lang === 'hi' ? 'अस्वीकरण' : 'Disclaimer' },
+  { key: 'terms', label: lang === 'hi' ? 'नियम एवं शर्तें' : 'Terms & Conditions' },
+].filter((item) => item.key !== page.key);
+---
+
+<header class="border-b border-line bg-surface-2">
+  <div class="container-page py-6 sm:py-8">
+    <Breadcrumbs lang={lang} items={[{ label: page.title[lang] }]} />
+    <h1 class="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">{page.title[lang]}</h1>
+    <p class="mt-2 max-w-2xl text-sm text-ink-2">{description}</p>
+    <p class="mt-2 flex items-center gap-1.5 text-xs text-ink-3">
+      <Icon name="clock" size={13} />
+      {lang === 'hi' ? 'अंतिम अद्यतन' : 'Last updated'}: {formatDate(page.updated, lang)}
+    </p>
+  </div>
+</header>
+
+<div class="container-page grid gap-8 pt-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+  <article class="prose-gov card p-5 sm:p-7" set:html={body} />
+
+  <aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
+    <nav class="card p-4" aria-label={lang === 'hi' ? 'अन्य पृष्ठ' : 'Other pages'}>
+      <h2 class="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+        <Icon name="layers" size={14} class="text-brand" />
+        {lang === 'hi' ? 'अन्य पृष्ठ' : 'Other pages'}
+      </h2>
+      <ul class="space-y-1">
+        {others.map((item) => (
+          <li>
+            <a
+              href={linkFor(item.key)}
+              class="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand"
+            >
+              <Icon name="chevronRight" size={14} class="text-ink-3" />
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <!-- No ad slot here on purpose. AdSense does not serve on privacy, terms
+         or disclaimer pages, so a reserved block would just be a permanently
+         empty grey rectangle. The sidebar nav above fills the space. -->
+  </aside>
+</div>

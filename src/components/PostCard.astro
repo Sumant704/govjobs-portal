@@ -1,0 +1,219 @@
+---
+/**
+ * Post card used on the homepage, category listings and search results.
+ *
+ * Three variants because the same data is scanned very differently in each
+ * context: `grid` on the homepage, `row` for dense listings (which is what
+ * readers of this niche actually expect), `compact` for sidebars.
+ */
+import Icon from '@/components/Icon.astro';
+import type { Lang, PostSummary } from '@/lib/types';
+import { POST_TYPES, postPath } from '@/lib/post-types';
+import { formatDate, relativeTime, daysUntil, truncate, formatNumber } from '@/lib/format';
+import { useTranslations } from '@/i18n/utils';
+
+interface Props {
+  post: PostSummary;
+  lang: Lang;
+  variant?: 'grid' | 'row' | 'compact';
+  /** Show the category badge — redundant on a category page. */
+  showType?: boolean;
+  /**
+   * Heading level for the card title.
+   *
+   * 3 (default) when the card sits under an <h2> section heading — the homepage
+   * rails and the sidebar. 2 when the cards are direct children of the page's
+   * <h1>, which is the case on category and search listings. Getting this wrong
+   * skips a heading level, which fails Lighthouse's `heading-order` audit and
+   * makes the document outline hard to navigate by heading.
+   */
+  headingLevel?: 2 | 3;
+  class?: string;
+}
+
+const {
+  post,
+  lang,
+  variant = 'grid',
+  showType = true,
+  headingLevel = 3,
+  class: className = '',
+} = Astro.props;
+
+// Astro renders a capitalised variable holding an HTML tag name as that element.
+const Heading = `h${headingLevel}` as 'h2' | 'h3';
+const t = useTranslations(lang);
+
+const type = POST_TYPES[post.type];
+const href = postPath(post.type, post.slug, lang);
+const lastDate = daysUntil(post.lastDate);
+const isNew = Date.now() - Date.parse(post.publishedAt) < 5 * 86_400_000;
+
+// Accent colours are read from the theme tokens so the card works in both
+// themes without a single `dark:` override.
+const accent = `var(--${type.accent})`;
+const accentSoft = `var(--${type.accent}-soft)`;
+
+const deadlineLabel =
+  lastDate === null ? '' : lastDate < 0 ? t('deadlinePassed') : lastDate === 0 ? t('deadlineToday') : `${lastDate} ${t('daysLeft')}`;
+const deadlineTone = lastDate === null ? '' : lastDate < 0 ? 'text-ink-3' : lastDate <= 3 ? 'text-rose' : 'text-ok';
+---
+
+{variant === 'grid' && (
+  <article class:list={['card card-hover group relative flex h-full flex-col overflow-hidden', className]}>
+    <!-- Cover strip: featured image over a type-coloured gradient fallback. -->
+    <a href={href} class="relative block h-32 overflow-hidden" tabindex="-1" aria-hidden="true">
+      <div
+        class="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.04]"
+        style={`background-image: linear-gradient(135deg, ${accent} 0%, color-mix(in oklab, ${accent} 45%, var(--violet)) 100%);`}
+      ></div>
+      {post.featuredImage && (
+        <img
+          src={post.featuredImage.url}
+          alt=""
+          width={post.featuredImage.width}
+          height={post.featuredImage.height}
+          loading="lazy"
+          decoding="async"
+          class="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+        />
+      )}
+      <div class="absolute inset-0 grid-lines opacity-40"></div>
+      <div class="absolute inset-0 flex items-center justify-between p-3">
+        <span class="grid h-9 w-9 place-items-center rounded-lg bg-black/30 text-white backdrop-blur-sm">
+          <Icon name={type.icon as any} size={18} />
+        </span>
+        {post.totalVacancies && (
+          <span class="rounded-md bg-black/35 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
+            {formatNumber(post.totalVacancies)} {t('posts')}
+          </span>
+        )}
+      </div>
+      <!-- Legibility scrim: keeps the white badges readable over a bright photo. -->
+      {post.featuredImage && (
+        <div class="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 to-transparent"></div>
+      )}
+    </a>
+
+    <div class="flex flex-1 flex-col p-4">
+      <div class="mb-2 flex flex-wrap items-center gap-1.5">
+        {showType && (
+          <span class="pill" style={`background:${accentSoft}; color:${accent};`}>{type.short[lang]}</span>
+        )}
+        {isNew && <span class="pill bg-rose-soft text-rose">{t('new')}</span>}
+        {post.isFeatured && <span class="pill bg-accent-soft text-accent">{t('featured')}</span>}
+        <span class="ml-auto text-[11px] text-ink-3">{relativeTime(post.publishedAt, lang)}</span>
+      </div>
+
+      <Heading class="text-[15px] font-bold leading-snug">
+        <a href={href} class="transition-colors hover:text-brand">
+          <span class="absolute inset-0 z-0"></span>
+          {post.title}
+        </a>
+      </Heading>
+
+      {post.organization && (
+        <p class="mt-2 flex items-center gap-1.5 text-xs text-ink-3">
+          <Icon name="building" size={13} class="shrink-0" />
+          <span class="truncate">{post.organization}</span>
+        </p>
+      )}
+
+      <p class="mt-2 line-clamp-2 text-[13px] leading-relaxed text-ink-2">
+        {truncate(post.excerpt, 130)}
+      </p>
+
+      <div class="mt-auto flex items-center justify-between gap-2 pt-4">
+        {lastDate !== null ? (
+          <span class:list={['flex items-center gap-1.5 text-[11px] font-semibold', deadlineTone]}>
+            <Icon name="clock" size={13} />
+            {deadlineLabel}
+          </span>
+        ) : (
+          <span class="flex items-center gap-1.5 text-[11px] text-ink-3">
+            <Icon name="calendar" size={13} />
+            {formatDate(post.publishedAt, lang)}
+          </span>
+        )}
+        <span class="relative z-10 flex items-center gap-1 text-[11px] font-semibold text-brand">
+          {t('viewDetails')}
+          <Icon name="arrowRight" size={13} class="transition-transform duration-200 group-hover:translate-x-0.5" />
+        </span>
+      </div>
+    </div>
+  </article>
+)}
+
+{variant === 'row' && (
+  <article class:list={['group relative flex gap-3 border-b border-line py-3.5 last:border-0', className]}>
+    <!-- Accent rail -->
+    <span
+      class="mt-1 w-1 shrink-0 rounded-full transition-all duration-300 group-hover:w-1.5"
+      style={`background:${accent};`}
+      aria-hidden="true"
+    ></span>
+
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center gap-1.5">
+        {showType && (
+          <span class="pill" style={`background:${accentSoft}; color:${accent};`}>{type.short[lang]}</span>
+        )}
+        {isNew && <span class="pill bg-rose-soft text-rose">{t('new')}</span>}
+        <span class="text-[11px] text-ink-3">{formatDate(post.publishedAt, lang)}</span>
+      </div>
+
+      <Heading class="mt-1.5 text-sm font-bold leading-snug">
+        <a href={href} class="transition-colors hover:text-brand">
+          <span class="absolute inset-0 z-0"></span>
+          {post.title}
+        </a>
+      </Heading>
+
+      <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-3">
+        {post.organization && (
+          <span class="flex items-center gap-1.5">
+            <Icon name="building" size={12} />
+            {post.organization}
+          </span>
+        )}
+        {post.totalVacancies && (
+          <span class="flex items-center gap-1.5">
+            <Icon name="users" size={12} />
+            {formatNumber(post.totalVacancies)} {t('posts')}
+          </span>
+        )}
+        {post.lastDate && (
+          <span class:list={['flex items-center gap-1.5 font-semibold', deadlineTone]}>
+            <Icon name="clock" size={12} />
+            {t('labelLastDate')}: {formatDate(post.lastDate, lang)}
+            {deadlineLabel && <span class="font-normal">· {deadlineLabel}</span>}
+          </span>
+        )}
+      </div>
+    </div>
+
+    <Icon
+      name="chevronRight"
+      size={18}
+      class="mt-1 shrink-0 self-center text-ink-3 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-brand"
+    />
+  </article>
+)}
+
+{variant === 'compact' && (
+  <article class="group relative flex items-start gap-2.5 py-2.5">
+    <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={`background:${accent};`}></span>
+    <div class="min-w-0">
+      <Heading class="line-clamp-2 text-[13px] font-medium leading-snug">
+        <a href={href} class="transition-colors hover:text-brand">
+          <span class="absolute inset-0 z-0"></span>
+          {post.title}
+        </a>
+      </Heading>
+      <p class="mt-0.5 text-[11px] text-ink-3">
+        {relativeTime(post.publishedAt, lang)}
+        {post.lastDate && ` · ${t('labelLastDate')} ${formatDate(post.lastDate, lang)}`}
+      </p>
+    </div>
+  </article>
+)}

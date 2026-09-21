@@ -1,0 +1,30 @@
+---
+import Icon from '@/components/Icon.astro';
+import type { Lang } from '@/lib/types';
+import { useTranslations } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+  variant?: 'compact' | 'text';
+}
+const { lang, variant = 'compact' } = Astro.props;
+const t = useTranslations(lang);
+---
+
+<button
+  type="button"
+  data-theme-toggle
+  class:list={[
+    'group inline-flex items-center justify-center gap-1.5 rounded-lg transition-colors',
+    variant === 'compact'
+      ? 'h-9 w-9 text-ink-2 hover:bg-surface-2 hover:text-brand'
+      : 'px-2 py-1 text-ink-3 hover:text-brand',
+  ]}
+  aria-label={t('themeToggle')}
+  title={t('themeToggle')}
+>
+  <Icon name="sun" size={variant === 'compact' ? 19 : 14} class="hidden dark:block" data-theme-icon="sun" />
+  <Icon name="moon" size={variant === 'compact' ? 19 : 14} class="block dark:hidden" data-theme-icon="moon" />
+  {variant === 'text' && <span class="hidden dark:inline">{t('themeLight')}</span>}
+  {variant === 'text' && <span class="inline dark:hidden">{t('themeDark')}</span>}
+</button>

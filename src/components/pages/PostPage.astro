@@ -1,0 +1,458 @@
+---
+import Icon from '@/components/Icon.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import PostTables from '@/components/PostTables.astro';
+import PostCard from '@/components/PostCard.astro';
+import ShareButtons from '@/components/ShareButtons.astro';
+import AdSlot from '@/components/AdSlot.astro';
+import { POST_TYPES, NAV_ORDER, categoryPath } from '@/lib/post-types';
+import type { GovPost, Lang, PostSummary } from '@/lib/types';
+import { useTranslations } from '@/i18n/utils';
+import { formatDate, daysUntil, readingTime, formatAmount, formatNumber } from '@/lib/format';
+
+interface Props {
+  lang: Lang;
+  post: GovPost;
+  related: PostSummary[];
+  /** Absolute URL of this page, for share links. */
+  shareUrl: string;
+  contentSource?: 'wordpress' | 'snapshot';
+}
+
+const { lang, post, related, shareUrl } = Astro.props;
+const t = useTranslations(lang);
+const type = POST_TYPES[post.type];
+const accent = `var(--${type.accent})`;
+const accentSoft = `var(--${type.accent}-soft)`;
+
+/* --- Deadline ------------------------------------------------------------- */
+// The "last date" is not a dedicated field: editors record it as a row in the
+// Important Dates repeater (that is how these posts are actually written). We
+// pick the row that says "last date" but not "fee payment last date".
+const deadlineRow = post.importantDates.find(
+  (d) => /last date|अंतिम तिथि/i.test(d.label) && !/fee|शुल्क/i.test(d.label),
+);
+const lastDate = daysUntil(deadlineRow?.value);
+
+const minutes = readingTime(post.contentHtml + post.howToApplyHtml);
+
+/* --- Key facts strip ------------------------------------------------------ */
+const lastDateRow = deadlineRow;
+const startDateRow = post.importantDates.find((d) => /begin|start|प्रारंभ/i.test(d.label));
+
+const facts = [
+  post.vacancy?.total && { icon: 'users' as const, label: t('labelTotalVacancies'), value: formatNumber(post.vacancy.total) },
+  lastDateRow && { icon: 'clock' as const, label: t('labelLastDate'), value: formatDate(lastDateRow.value, lang), tone: 'accent' as const },
+  startDateRow && { icon: 'calendar' as const, label: t('labelPublished'), value: formatDate(startDateRow.value, lang) },
+  post.qualification && { icon: 'book' as const, label: t('labelQualification'), value: post.qualification },
+  post.jobLocation && { icon: 'pin' as const, label: t('labelLocation'), value: post.jobLocation },
+].filter(Boolean) as { icon: 'users' | 'clock' | 'calendar' | 'book' | 'pin'; label: string; value: string; tone?: 'accent' }[];
+
+/* --- Quick actions -------------------------------------------------------- */
+const actions = [
+  post.applyLink && { href: post.applyLink, label: t('ctaApplyOnline'), icon: 'external' as const, primary: true },
+  post.notificationPdf && { href: post.notificationPdf, label: t('ctaDownloadPdf'), icon: 'download' as const, primary: false },
+  post.officialWebsite && { href: post.officialWebsite, label: t('ctaOfficialSite'), icon: 'globe' as const, primary: false },
+].filter(Boolean) as { href: string; label: string; icon: 'external' | 'download' | 'globe'; primary: boolean }[];
+
+/* --- Structured data ------------------------------------------------------ */
+// JobPosting is only valid for actual job postings; using it on a result page
+// is a schema violation that gets the rich result suppressed sitewide.
+const isJob = post.type === 'jobs';
+const validThrough = deadlineRow?.value?.match(/^\d{4}-\d{2}-\d{2}$/)?.[0];
+
+const schema: Record<string, unknown>[] = [
+  {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: t('breadcrumbHome'), item: shareUrl.split('/').slice(0, 3).join('/') },
+      { '@type': 'ListItem', position: 2, name: type.label[lang], item: `${shareUrl.split('/').slice(0, 3).join('/')}${categoryPath(post.type, lang)}` },
+      { '@type': 'ListItem', position: 3, name: post.title },
+    ],
+  },
+  isJob
+    ? {
+        '@type': 'JobPosting',
+        title: post.title,
+        description: post.excerpt,
+        datePosted: post.publishedAt,
+        ...(validThrough ? { validThrough: `${validThrough}T23:59:59+05:30` } : {}),
+        employmentType: 'FULL_TIME',
+        hiringOrganization: { '@type': 'Organization', name: post.organization },
+        jobLocation: {
+          '@type': 'Place',
+          address: { '@type': 'PostalAddress', addressCountry: 'IN', addressRegion: post.jobLocation },
+        },
+        ...(post.vacancy?.total && /^\d+$/.test(post.vacancy.total)
+          ? { totalJobOpenings: Number(post.vacancy.total) }
+          : {}),
+        ...(post.qualification ? { educationRequirements: post.qualification } : {}),
+        directApply: false,
+      }
+    : {
+        '@type': 'NewsArticle',
+        headline: post.title,
+        description: post.excerpt,
+        datePublished: post.publishedAt,
+        dateModified: post.modifiedAt,
+        inLanguage: lang === 'hi' ? 'hi-IN' : 'en-IN',
+        author: { '@type': 'Organization', name: 'Editorial Team' },
+        publisher: { '@id': `${shareUrl.split('/').slice(0, 3).join('/')}/#organization` },
+        articleSection: type.label[lang],
+      },
+];
+
+const siblings = NAV_ORDER.filter((k) => k !== post.type).slice(0, 5);
+---
+
+<article class="pb-8">
+  <!-- ================= Page header ================= -->
+  <header class="border-b border-line bg-surface-2">
+    <div class="container-page py-5 sm:py-7">
+      <Breadcrumbs
+        lang={lang}
+        items={[
+          { label: type.label[lang], href: categoryPath(post.type, lang) },
+          { label: post.organization || post.title },
+        ]}
+      />
+
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <span class="pill" style={`background:${accentSoft}; color:${accent};`}>
+          <Icon name={type.icon as any} size={11} />
+          {type.label[lang]}
+        </span>
+        {post.isFeatured && <span class="pill bg-accent-soft text-accent">{t('featured')}</span>}
+        {lastDate !== null && lastDate >= 0 && lastDate <= 3 && (
+          <span class="pill bg-rose-soft text-rose">
+            {lastDate === 0 ? t('deadlineToday') : `${lastDate} ${t('daysLeft')}`}
+          </span>
+        )}
+        {lastDate !== null && lastDate < 0 && <span class="pill bg-surface-3 text-ink-3">{t('deadlinePassed')}</span>}
+      </div>
+
+      <h1 class="mt-3 max-w-4xl text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl lg:text-[2rem]">
+        {post.title}
+      </h1>
+
+      <div class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-3">
+        {post.organization && (
+          <span class="flex items-center gap-1.5 font-medium text-ink-2">
+            <Icon name="building" size={14} />
+            {post.organization}
+          </span>
+        )}
+        <span class="flex items-center gap-1.5">
+          <Icon name="calendar" size={14} />
+          {t('labelPublished')}: {formatDate(post.publishedAt, lang)}
+        </span>
+        {post.modifiedAt !== post.publishedAt && (
+          <span class="flex items-center gap-1.5">
+            <Icon name="zap" size={14} />
+            {t('updatedOn')}: {formatDate(post.modifiedAt, lang)}
+          </span>
+        )}
+        <span class="flex items-center gap-1.5">
+          <Icon name="clock" size={14} />
+          {minutes} {t('readingTime')}
+        </span>
+        <span class="flex items-center gap-1.5 text-ok">
+          <Icon name="shield" size={14} />
+          {t('verifiedSource')}
+        </span>
+      </div>
+
+      {actions.length > 0 && (
+        <div class="mt-5 flex flex-wrap gap-2">
+          {actions.map((action) => (
+            <a
+              href={action.href}
+              target="_blank"
+              rel="noopener nofollow"
+              class:list={['btn', action.primary ? 'btn-accent' : 'btn-ghost']}
+            >
+              <Icon name={action.icon} size={16} />
+              {action.label}
+            </a>
+          ))}
+        </div>
+      )}
+
+      <ShareButtons lang={lang} url={shareUrl} title={post.title} class="mt-5" />
+    </div>
+  </header>
+
+  <div class="container-page grid gap-8 pt-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <!-- ================= Main column ================= -->
+    <div class="min-w-0 space-y-7">
+      <!-- Featured image: real width/height reserves space, so CLS stays 0. -->
+      {post.featuredImage && (
+        <figure class="card overflow-hidden">
+          <img
+            src={post.featuredImage.url}
+            alt={post.featuredImage.alt || post.title}
+            width={post.featuredImage.width}
+            height={post.featuredImage.height}
+            loading="lazy"
+            decoding="async"
+            class="h-auto w-full object-cover"
+          />
+          <figcaption class="border-t border-line bg-surface-2 px-4 py-2 text-[11px] text-ink-3">
+            {post.organization} — {type.label[lang]}
+          </figcaption>
+        </figure>
+      )}
+
+      <!-- Key facts -->
+      {facts.length > 0 && (
+        <section class="card overflow-hidden">
+          <h2 class="flex items-center gap-2 border-b border-line bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider">
+            <Icon name="sparkle" size={14} class="text-brand" />
+            {t('quickSummary')}
+          </h2>
+          <dl class="grid gap-px bg-line sm:grid-cols-2">
+            {facts.map((fact) => (
+              <div class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 bg-surface p-3.5">
+                <!-- Only dt/dd may sit in a <div> inside a <dl>, so the icon
+                     is inside the <dd> and positioned with grid. -->
+                <dt class="col-start-2 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{fact.label}</dt>
+                <dd class="col-span-2 col-start-1 row-start-2 flex items-start gap-3">
+                  <span
+                    class:list={[
+                      'grid h-8 w-8 shrink-0 place-items-center rounded-lg',
+                      fact.tone === 'accent' ? 'bg-accent-soft text-accent' : 'bg-brand-soft text-brand',
+                    ]}
+                  >
+                    <Icon name={fact.icon} size={15} />
+                  </span>
+                  <span class="mt-0.5 text-[13px] font-medium leading-snug text-ink">{fact.value}</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
+      <!-- The four structured tables -->
+      <PostTables post={post} lang={lang} />
+
+      <AdSlot slot="post-in-content" format="rectangle" label={t('adLabel')} />
+
+      <!-- Free-text body from WordPress -->
+      {post.contentHtml && (
+        <section class="prose-gov" set:html={post.contentHtml} />
+      )}
+
+      <!-- How to apply -->
+      {post.howToApplyHtml && (
+        <section id="how-to-apply" class="scroll-mt-24">
+          <h2 class="section-title mb-3">
+            <Icon name="check" size={17} class="text-brand" />
+            {t('tableHowToApply')}
+          </h2>
+          <div class="card prose-gov p-4 sm:p-5" set:html={post.howToApplyHtml} />
+        </section>
+      )}
+
+      <!-- Official links -->
+      {actions.length > 0 && (
+        <section id="official-links" class="scroll-mt-24">
+          <h2 class="section-title mb-3">
+            <Icon name="globe" size={17} class="text-brand" />
+            {t('officialLinks')}
+          </h2>
+          <div class="grid gap-2 sm:grid-cols-3">
+            {actions.map((action) => (
+              <a
+                href={action.href}
+                target="_blank"
+                rel="noopener nofollow"
+                class="card card-hover flex items-center gap-3 p-3.5"
+              >
+                <span
+                  class:list={[
+                    'grid h-9 w-9 shrink-0 place-items-center rounded-lg',
+                    action.primary ? 'bg-accent-soft text-accent' : 'bg-brand-soft text-brand',
+                  ]}
+                >
+                  <Icon name={action.icon} size={17} />
+                </span>
+                <span class="min-w-0">
+                  <span class="block truncate text-[13px] font-semibold">{action.label}</span>
+                  <span class="block truncate text-[11px] text-ink-3">
+                    {action.href.replace(/^https?:\/\//, '').split('/')[0]}
+                  </span>
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <!-- Disclaimer -->
+      <div class="card border-l-4 border-l-accent p-4">
+        <h2 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+          <Icon name="alert" size={14} class="text-accent" />
+          {t('disclaimer')}
+        </h2>
+        <p class="mt-2 text-[12.5px] leading-relaxed text-ink-2">{t('footerDisclaimer')}</p>
+      </div>
+
+      <ShareButtons lang={lang} url={shareUrl} title={post.title} class="pt-2" />
+
+      <!-- Related -->
+      {related.length > 0 && (
+        <section class="reveal pt-4">
+          <div class="section-head">
+            <h2 class="section-title">{t('relatedPosts')}</h2>
+            <a href={categoryPath(post.type, lang)} class="text-[11px] font-semibold text-brand hover:underline">
+              {t('viewAll')}
+            </a>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {related.slice(0, 3).map((item) => (
+              <PostCard post={item} lang={lang} variant="grid" />
+            ))}
+          </div>
+          <div class="card mt-4 px-4 py-1">
+            {related.slice(3, 6).map((item) => (
+              <PostCard post={item} lang={lang} variant="compact" />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+
+    <!-- ================= Sidebar ================= -->
+    <aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
+      <AdSlot slot="post-sidebar" format="halfpage" label={t('adLabel')} />
+
+      {post.importantDates.length > 0 && (
+        <nav class="card p-4" aria-labelledby="on-this-page">
+          <h2 id="on-this-page" class="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+            <Icon name="layers" size={14} class="text-brand" />
+            {t('onThisPage')}
+          </h2>
+          <ul class="space-y-0.5">
+            {post.importantDates.length > 0 && (
+              <li>
+                <a href="#important-dates" class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand">
+                  <Icon name="chevronRight" size={13} class="text-ink-3" />{t('tableImportantDates')}
+                </a>
+              </li>
+            )}
+            {post.applicationFee.length > 0 && (
+              <li>
+                <a href="#application-fee" class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand">
+                  <Icon name="chevronRight" size={13} class="text-ink-3" />{t('tableApplicationFee')}
+                </a>
+              </li>
+            )}
+            {post.ageLimit && (
+              <li>
+                <a href="#age-limit" class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand">
+                  <Icon name="chevronRight" size={13} class="text-ink-3" />{t('tableAgeLimit')}
+                </a>
+              </li>
+            )}
+            {post.vacancy && (
+              <li>
+                <a href="#vacancy-details" class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand">
+                  <Icon name="chevronRight" size={13} class="text-ink-3" />{t('tableVacancy')}
+                </a>
+              </li>
+            )}
+            {post.howToApplyHtml && (
+              <li>
+                <a href="#how-to-apply" class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand">
+                  <Icon name="chevronRight" size={13} class="text-ink-3" />{t('tableHowToApply')}
+                </a>
+              </li>
+            )}
+          </ul>
+        </nav>
+      )}
+
+      <!-- Deadline countdown card -->
+      {lastDateRow && (
+        <div class="card overflow-hidden">
+          <div class="bg-gradient-to-br from-accent to-accent-2 px-4 py-3 text-accent-ink">
+            <p class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
+              <Icon name="clock" size={13} />
+              {t('applyBefore')}
+            </p>
+            <p class="mt-1 text-lg font-extrabold">{formatDate(lastDateRow.value, lang)}</p>
+          </div>
+          <div class="px-4 py-3 text-[12px] text-ink-2">
+            {lastDate === null ? (
+              <span>{t('verifiedSource')}</span>
+            ) : lastDate < 0 ? (
+              <span class="font-semibold text-ink-3">{t('deadlinePassed')}</span>
+            ) : (
+              <span>
+                <strong class="text-accent">{lastDate}</strong> {t('daysLeft')}
+              </span>
+            )}
+            {post.applicationFee.length > 0 && (
+              <p class="mt-2 border-t border-line pt-2">
+                {t('tableApplicationFee')}:{' '}
+                <strong>
+                  {post.applicationFee.find((f) => !f.free) ? formatAmount(post.applicationFee.find((f) => !f.free)!.amount) : t('free')}
+                </strong>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <nav class="card p-4" aria-labelledby="side-cats">
+        <h2 id="side-cats" class="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+          <Icon name="layers" size={14} class="text-brand" />
+          {t('alsoCheck')}
+        </h2>
+        <ul class="space-y-1">
+          {siblings.map((key) => (
+            <li>
+              <a
+                href={categoryPath(key, lang)}
+                class="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-brand"
+              >
+                <span class="flex items-center gap-2.5">
+                  <span
+                    class="grid h-6 w-6 place-items-center rounded-md"
+                    style={`background:var(--${POST_TYPES[key].accent}-soft); color:var(--${POST_TYPES[key].accent});`}
+                  >
+                    <Icon name={POST_TYPES[key].icon as any} size={13} />
+                  </span>
+                  {POST_TYPES[key].short[lang]}
+                </span>
+                <Icon name="chevronRight" size={14} class="text-ink-3" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </aside>
+  </div>
+</article>
+
+<!-- ================= Sticky mobile action bar ================= -->
+{actions.length > 0 && (
+  <div class="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line glass px-3 py-2.5 lg:hidden">
+    <div class="flex gap-2">
+      {actions.slice(0, 2).map((action) => (
+        <a
+          href={action.href}
+          target="_blank"
+          rel="noopener nofollow"
+          class:list={['btn flex-1 text-[13px]', action.primary ? 'btn-accent' : 'btn-ghost']}
+        >
+          <Icon name={action.icon} size={15} />
+          <span class="truncate">{action.label}</span>
+        </a>
+      ))}
+    </div>
+  </div>
+)}
+
+<script type="application/ld+json" set:html={JSON.stringify(schema)} />

@@ -1,0 +1,49 @@
+---
+import Icon from '@/components/Icon.astro';
+import SearchBox from '@/components/SearchBox.astro';
+import CategoryTiles from '@/components/CategoryTiles.astro';
+import type { Lang, PostTypeKey } from '@/lib/types';
+import { useTranslations, localizePath } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+  counts?: Partial<Record<PostTypeKey, number>>;
+}
+const { lang, counts = {} } = Astro.props;
+const t = useTranslations(lang);
+---
+
+<div class="container-page grid place-items-center py-16 text-center sm:py-24">
+  <div class="relative">
+    <span
+      class="pointer-events-none absolute -inset-x-10 -top-10 select-none text-[8rem] font-extrabold leading-none tracking-tighter text-line sm:text-[11rem]"
+      aria-hidden="true">404</span>
+    <div class="relative">
+      <span class="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-brand-soft text-brand shadow-pop">
+        <Icon name="search" size={30} />
+      </span>
+    </div>
+  </div>
+
+  <h1 class="mt-6 text-2xl font-extrabold tracking-tight sm:text-3xl">{t('notFoundTitle')}</h1>
+  <p class="mt-3 max-w-lg text-sm leading-relaxed text-ink-2">{t('notFoundBody')}</p>
+
+  <div class="mt-6 flex flex-wrap justify-center gap-2">
+    <a href={localizePath('/', lang)} class="btn btn-primary">
+      <Icon name="layers" size={16} />
+      {t('notFoundCta')}
+    </a>
+    <a href={localizePath('/search', lang)} class="btn btn-ghost">
+      <Icon name="search" size={16} />
+      {t('searchTitle')}
+    </a>
+  </div>
+
+  <div class="mt-8 w-full max-w-lg">
+    <SearchBox lang={lang} />
+  </div>
+
+  <div class="mt-14 w-full">
+    <CategoryTiles lang={lang} counts={counts} />
+  </div>
+</div>

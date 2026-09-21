@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# Docker Compose — frontend only
+# ---------------------------------------------------------------------------
+# Assumes nginx runs on the host (see deploy/nginx.conf) and proxies to the
+# published port. If you would rather containerise nginx too, add it as a
+# second service and drop the `ports:` mapping in favour of an internal network.
+#
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#
+# Secrets live in .env.production on the host, which is gitignored. Never put
+# them in this file.
+
+services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      # Public values only. These are inlined into the client bundle at build
+      # time, so changing them needs a rebuild, not a restart.
+      args:
+        SITE_URL: ${SITE_URL:-https://example-govjobs.com}
+        PUBLIC_ADSENSE_CLIENT: ${PUBLIC_ADSENSE_CLIENT:-}
+        PUBLIC_ADSENSE_ENABLED: ${PUBLIC_ADSENSE_ENABLED:-true}
+        PUBLIC_GA_MEASUREMENT_ID: ${PUBLIC_GA_MEASUREMENT_ID:-}
+
+    image: sarkarihub-frontend:latest
+    container_name: sarkarihub-frontend
+    restart: unless-stopped
+
+    # Runtime configuration. Secrets arrive here, never as build args.
+    env_file:
+      - ../.env.production
+
+    # Bind to loopback only — nginx on the host is the only thing that should
+    # reach it. Publishing on 0.0.0.0 would expose the Node server directly,
+    # bypassing TLS, rate limiting and the edge cache.
+    ports:
+      - '127.0.0.1:4321:4321'
+
+    # The app is stateless; a read-only root filesystem is safe and limits the
+    # blast radius of a compromise. Astro's Node adapter writes sessions to
+    # disk, so that one path stays writable.
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - astro-sessions:/app/node_modules/.astro
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:4321/api/health']
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+    deploy:
+      resources:
+        limits:
+          # The frontend is mostly I/O. This is generous; raise it only if you
+          # see Node CPU-throttling under load.
+          cpus: '1.5'
+          memory: 768M
+
+volumes:
+  astro-sessions:

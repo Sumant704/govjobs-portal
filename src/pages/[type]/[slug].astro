@@ -1,0 +1,54 @@
+---
+/**
+ * Single post route: /results/ssc-cgl-2026
+ *
+ * Returns a real 404 status (not a redirect) when the post does not exist, so
+ * Google drops dead notifications from the index instead of following a soft
+ * 404 back to the homepage.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PostPage from '@/components/pages/PostPage.astro';
+import NotFound from '@/components/pages/NotFound.astro';
+import { resolvePostType } from '@/lib/post-types';
+import { getPost, getRelated } from '@/lib/wp';
+import { useTranslations } from '@/i18n/utils';
+
+export const prerender = false;
+
+const lang = 'en' as const;
+const segment = Astro.params.type ?? '';
+const slug = Astro.params.slug ?? '';
+const config = resolvePostType(segment);
+
+const post = config ? await getPost(config.key, slug, lang) : null;
+const related = post ? await getRelated(post, 6) : [];
+const t = useTranslations(lang);
+
+if (!post) Astro.response.status = 404;
+
+const siteUrl = (Astro.site?.toString() ?? 'https://example-govjobs.com').replace(/\/$/, '');
+const shareUrl = config && post ? `${siteUrl}/${config.slug}/${post.slug}` : siteUrl;
+
+const title = post?.seo.title ?? t('notFoundTitle');
+const description = post?.seo.description ?? t('notFoundBody');
+const robots = post ? post.seo.robots : 'noindex, follow';
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonicalPath={config && post ? `/${config.slug}/${post.slug}` : '/404'}
+  lang={lang}
+  robots={robots}
+  pageType={post ? 'article' : 'website'}
+  ogImage={post?.seo.ogImage ?? post?.featuredImage?.url}
+  publishedTime={post?.publishedAt}
+  modifiedTime={post?.modifiedAt}
+  showMarquee={false}
+>
+  {post && config ? (
+    <PostPage lang={lang} post={post} related={related} shareUrl={shareUrl} />
+  ) : (
+    <NotFound lang={lang} />
+  )}
+</BaseLayout>

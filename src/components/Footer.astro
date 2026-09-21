@@ -1,0 +1,154 @@
+---
+import Icon from '@/components/Icon.astro';
+import type { Lang } from '@/lib/types';
+import { POST_TYPES, NAV_ORDER, categoryPath } from '@/lib/post-types';
+import { useTranslations, localizePath } from '@/i18n/utils';
+import { SITE } from '@/lib/site';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const settings = Astro.locals.settings;
+
+const year = new Date().getFullYear();
+
+const categories = NAV_ORDER.map((key) => ({
+  href: categoryPath(key, lang),
+  label: POST_TYPES[key].label[lang],
+}));
+
+const quickLinks = [
+  { href: localizePath('/notification', lang), label: POST_TYPES.notification.label[lang] },
+  { href: localizePath('/search', lang), label: t('searchTitle') },
+  { href: localizePath('/about', lang), label: t('aboutUs') },
+  { href: localizePath('/contact', lang), label: t('contact') },
+  { href: localizePath('/privacy-policy', lang), label: t('privacyPolicy') },
+  { href: localizePath('/disclaimer', lang), label: t('disclaimer') },
+  { href: localizePath('/terms', lang), label: t('terms') },
+];
+
+const socials = [
+  { icon: 'whatsapp' as const, label: 'WhatsApp', href: 'https://whatsapp.com/channel/' },
+  { icon: 'telegram' as const, label: 'Telegram', href: 'https://t.me/' },
+  { icon: 'facebook' as const, label: 'Facebook', href: 'https://facebook.com/' },
+  { icon: 'x' as const, label: 'X', href: 'https://x.com/' },
+];
+---
+
+<footer class="mt-14 border-t border-line bg-surface no-print">
+  <!-- AdSense-safe disclosure strip -->
+  <div class="border-b border-line bg-surface-2">
+    <div class="container-page flex flex-col items-start gap-2 py-3 text-xs text-ink-3 sm:flex-row sm:items-center sm:gap-3">
+      <span class="flex shrink-0 items-center gap-1.5 font-semibold text-ink-2">
+        <Icon name="alert" size={14} class="text-accent" />
+        {t('disclaimer')}
+      </span>
+      <p class="leading-relaxed">{t('footerDisclaimer')}</p>
+    </div>
+  </div>
+
+  <div class="container-page grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
+    <!-- Brand -->
+    <div class="lg:col-span-1">
+      <a href={localizePath('/', lang)} class="flex items-center gap-2.5">
+        <span class="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-2 to-brand text-white">
+          <Icon name="layers" size={20} strokeWidth={2.1} />
+        </span>
+        <span class="text-lg font-extrabold tracking-tight">{settings.name}</span>
+      </a>
+      <p class="mt-4 text-sm leading-relaxed text-ink-2">{t('footerAbout')}</p>
+      <div class="mt-5 flex items-center gap-2">
+        {socials.map((s) => (
+          <a
+            href={s.href}
+            rel="noopener nofollow"
+            target="_blank"
+            aria-label={s.label}
+            class="grid h-9 w-9 place-items-center rounded-lg border border-line bg-surface-2 text-ink-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+          >
+            <Icon name={s.icon} size={17} />
+          </a>
+        ))}
+      </div>
+    </div>
+
+    <!-- Categories -->
+    <nav aria-labelledby="footer-categories">
+      <h2 id="footer-categories" class="text-sm font-bold uppercase tracking-wider text-ink">
+        {t('footerCategories')}
+      </h2>
+      <ul class="mt-4 space-y-2.5">
+        {categories.map((item) => (
+          <li>
+            <a
+              href={item.href}
+              class="inline-flex items-center gap-2 text-sm text-ink-2 transition-colors hover:text-brand"
+            >
+              <Icon name="chevronRight" size={13} class="text-ink-3" />
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <!-- Quick links -->
+    <nav aria-labelledby="footer-quick">
+      <h2 id="footer-quick" class="text-sm font-bold uppercase tracking-wider text-ink">
+        {t('footerQuickLinks')}
+      </h2>
+      <ul class="mt-4 space-y-2.5">
+        {quickLinks.map((item) => (
+          <li>
+            <a
+              href={item.href}
+              class="inline-flex items-center gap-2 text-sm text-ink-2 transition-colors hover:text-brand"
+            >
+              <Icon name="chevronRight" size={13} class="text-ink-3" />
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <!-- Contact -->
+    <div>
+      <h2 class="text-sm font-bold uppercase tracking-wider text-ink">{t('footerContact')}</h2>
+      <ul class="mt-4 space-y-3 text-sm text-ink-2">
+        <li class="flex items-start gap-2.5">
+          <Icon name="mail" size={16} class="mt-0.5 shrink-0 text-brand" />
+          <a href={`mailto:${settings.contactEmail}`} class="transition-colors hover:text-brand">
+            {settings.contactEmail}
+          </a>
+        </li>
+        <li class="flex items-start gap-2.5">
+          <Icon name="phone" size={16} class="mt-0.5 shrink-0 text-brand" />
+          <span>{settings.contactPhone}</span>
+        </li>
+        <li class="flex items-start gap-2.5">
+          <Icon name="pin" size={16} class="mt-0.5 shrink-0 text-brand" />
+          <span>{settings.address}</span>
+        </li>
+      </ul>
+      <p class="mt-5 text-xs text-ink-3">{t('footerMadeIn')}</p>
+    </div>
+  </div>
+
+  <div class="border-t border-line">
+    <div class="container-page flex flex-col items-center justify-between gap-3 py-5 text-xs text-ink-3 sm:flex-row">
+      <p>© {year} {settings.name}. {t('footerRights')}</p>
+      <div class="flex items-center gap-4">
+        <a href={localizePath('/privacy-policy', lang)} class="transition-colors hover:text-brand">{t('privacyPolicy')}</a>
+        <a href={localizePath('/terms', lang)} class="transition-colors hover:text-brand">{t('terms')}</a>
+        <a href={localizePath('/disclaimer', lang)} class="transition-colors hover:text-brand">{t('disclaimer')}</a>
+      </div>
+      <p class="flex items-center gap-1.5">
+        <Icon name="shield" size={13} class="text-ok" />
+        {SITE.name} · v1.0
+      </p>
+    </div>
+  </div>
+</footer>

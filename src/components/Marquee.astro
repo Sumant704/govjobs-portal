@@ -1,0 +1,51 @@
+---
+/**
+ * Notice / breaking-news ticker.
+ *
+ * Renders two identical copies of the item list and translates the track by
+ * -50%, which produces a seamless loop with no JS. Pauses on hover and on
+ * keyboard focus so a visitor can actually click a link.
+ */
+import Icon from '@/components/Icon.astro';
+import type { Lang, SiteSettings } from '@/lib/types';
+import { useTranslations } from '@/i18n/utils';
+
+interface Props {
+  lang: Lang;
+  notices: SiteSettings['notices'];
+}
+const { lang, notices } = Astro.props;
+const t = useTranslations(lang);
+if (!notices.length) return;
+const items = [...notices, ...notices];
+---
+
+<div class="marquee no-print relative flex items-stretch overflow-hidden border-b border-line bg-surface-2">
+  <!-- Fixed label -->
+  <div class="relative z-10 flex shrink-0 items-center gap-2 bg-gradient-to-r from-accent to-accent-2 px-3 text-white sm:px-4">
+    <span class="relative flex h-2 w-2">
+      <span class="absolute inline-flex h-full w-full rounded-full bg-white opacity-75" style="animation: pulse-dot 1.6s ease-in-out infinite"></span>
+      <span class="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
+    </span>
+    <span class="text-[11px] font-bold uppercase tracking-wider sm:text-xs">{t('breaking')}</span>
+    <!-- Fade so text does not visibly slide under the label -->
+    <span class="pointer-events-none absolute -right-6 top-0 h-full w-6 bg-gradient-to-r from-accent-2 to-transparent"></span>
+  </div>
+
+  <!-- Scrolling track -->
+  <div class="relative flex-1 overflow-hidden py-2">
+    <div class="marquee-track items-center">
+      {items.map((notice, i) => (
+        <a
+          href={notice.href}
+          class="inline-flex items-center gap-2 text-[13px] font-medium text-ink-2 transition-colors hover:text-brand"
+          aria-hidden={i >= notices.length}
+          tabindex={i >= notices.length ? -1 : 0}
+        >
+          <Icon name="sparkle" size={13} class="shrink-0 text-accent" />
+          {notice.text}
+        </a>
+      ))}
+    </div>
+  </div>
+</div>

@@ -1,0 +1,25 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import NotFound from '@/components/pages/NotFound.astro';
+import { getCategoryCounts } from '@/lib/wp';
+
+export const prerender = false;
+
+const lang = 'en' as const;
+const counts = await getCategoryCounts(lang);
+
+// Astro renders src/pages/404.astro with a 404 status for unmatched routes in
+// server mode, so this is the real error page — not a redirect target.
+Astro.response.status = 404;
+---
+
+<BaseLayout
+  title="Page not found"
+  description="The page you are looking for may have been moved, or the notification is no longer active."
+  canonicalPath="/404"
+  lang={lang}
+  robots="noindex, follow"
+  showMarquee={false}
+>
+  <NotFound lang={lang} counts={counts} />
+</BaseLayout>

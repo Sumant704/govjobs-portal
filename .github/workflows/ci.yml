@@ -1,0 +1,152 @@
+# ---------------------------------------------------------------------------
+# CI — type check, build, and end-to-end verification
+# ---------------------------------------------------------------------------
+# Three jobs, deliberately separate so a failure says which layer broke:
+#
+#   check      type-checks. Catches the class of bug that renders as HTTP 200
+#              with an "Internal server error" body — which no status-code test
+#              will ever see. `astro build` does not type-check on its own.
+#   build      produces dist/ and asserts the artifact is real.
+#   verify     boots the built server against the mock WordPress API and runs
+#              scripts/verify.mjs: every route, both locales, SEO tags, JSON-LD,
+#              webhook auth, response headers.
+#
+# Also asserts that no secret ended up in the build output. Vite inlines
+# `import.meta.env.X` at build time, and that leaked a real secret into dist/
+# during development — so it is checked on every run rather than trusted.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  # Placeholder values only. CI never talks to a real WordPress or a real
+  # AdSense account — the mock API stands in for the CMS.
+  REVALIDATE_SECRET: ci-test-secret-not-used-in-production
+  SITE_URL: https://example-govjobs.com
+  PUBLIC_ADSENSE_ENABLED: 'false'
+
+jobs:
+  check:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: astro check
+        run: npm run check
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+
+      - name: Assert the build produced a real artifact
+        run: |
+          set -e
+          test -f dist/server/entry.mjs      || { echo "missing dist/server/entry.mjs"; exit 1; }
+          test -d dist/client                || { echo "missing dist/client"; exit 1; }
+          CSS=$(ls dist/client/_astro/*.css | head -1)
+          test -s "$CSS"                     || { echo "missing generated CSS"; exit 1; }
+          echo "artifact ok — $(du -sh dist | cut -f1) total"
+
+      - name: Assert no secret was inlined into the build output
+        run: |
+          set -e
+          # Grep for the CI secret value. A hit means someone read a secret
+          # through import.meta.env, which Vite replaces with a literal.
+          if grep -rl "$REVALIDATE_SECRET" dist/ 2>/dev/null; then
+            echo "::error::REVALIDATE_SECRET was inlined into the build output."
+            echo "Use readSecret() from src/lib/env.ts instead of import.meta.env."
+            exit 1
+          fi
+          echo "no secret in build output"
+
+      - name: Assert ACF field names match the frontend normaliser
+        run: npm run wp:fields
+
+      # Static analysis of deploy/ against the real build output. Catches the
+      # class of bug that only shows up in production: an nginx alias pointing
+      # one directory above the actual assets, or a missing .dockerignore
+      # sending .env into the build context.
+      - name: Validate the deploy configuration
+        run: npm run deploy:check
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 3
+
+  verify:
+    name: End-to-end verification
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+
+      - name: Start the mock WordPress API
+        run: |
+          node scripts/mock-wordpress.mjs > /tmp/mock-wp.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:4399/__stats >/dev/null && break
+            sleep 0.5
+          done
+          curl -sf http://127.0.0.1:4399/__stats >/dev/null || { cat /tmp/mock-wp.log; exit 1; }
+          echo "mock WordPress up"
+
+      - name: Start the frontend against the mock API
+        run: |
+          HOST=127.0.0.1 PORT=4321 WP_API_URL=http://127.0.0.1:4399 \
+            node ./dist/server/entry.mjs > /tmp/server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:4321/api/health >/dev/null && break
+            sleep 0.5
+          done
+          curl -sf http://127.0.0.1:4321/api/health >/dev/null || { cat /tmp/server.log; exit 1; }
+          echo "frontend up"
+
+      - name: Run the verification suite
+        run: node scripts/verify.mjs
+
+      - name: Assert WordPress mode is actually active
+        run: |
+          set -e
+          SOURCE=$(curl -s http://127.0.0.1:4321/api/health | node -e \
+            "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).source))")
+          echo "content source: $SOURCE"
+          # If this says "snapshot", the frontend never reached the mock API and
+          # the whole suite ran against bundled sample content instead.
+          test "$SOURCE" = "wordpress" || { echo "::error::frontend fell back to snapshot mode"; exit 1; }
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "--- mock WordPress ---"; tail -30 /tmp/mock-wp.log 2>/dev/null || true
+          echo "--- frontend ---";       tail -60 /tmp/server.log 2>/dev/null || true

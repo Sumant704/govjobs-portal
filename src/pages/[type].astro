@@ -1,0 +1,63 @@
+---
+/**
+ * Generic category listing route.
+ *
+ * Handles both the pretty slug (`/latest-jobs`) and the REST base (`/jobs`) so
+ * a link from anywhere — including a WordPress permalink — resolves. Static
+ * routes like `/about` and `/search` take priority over this dynamic segment,
+ * which is what keeps them from being swallowed here.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import CategoryPage from '@/components/pages/CategoryPage.astro';
+import NotFound from '@/components/pages/NotFound.astro';
+import { resolvePostType } from '@/lib/post-types';
+import { getPosts, getCategoryCounts } from '@/lib/wp';
+import { useTranslations } from '@/i18n/utils';
+
+export const prerender = false;
+
+const lang = 'en' as const;
+const segment = Astro.params.type ?? '';
+const config = resolvePostType(segment);
+
+const query: Record<string, string> = {};
+for (const [key, value] of Astro.url.searchParams) query[key] = value;
+
+const page = Math.max(1, Number(query.page ?? 1) || 1);
+
+const posts = config
+  ? await getPosts({
+      type: config.key,
+      lang,
+      page,
+      perPage: 15,
+      search: query.q,
+      organization: query.organization,
+    })
+  : { items: [], total: 0, totalPages: 1, page: 1, perPage: 15 };
+
+const counts = config ? {} : await getCategoryCounts(lang);
+
+if (!config) Astro.response.status = 404;
+
+const t = useTranslations(lang);
+const title = config ? config.label[lang] : t('notFoundTitle');
+const description = config
+  ? `${config.description[lang]} Updated daily. Page ${page}.`
+  : t('notFoundBody');
+const robots = page > 1 ? 'noindex, follow' : 'index, follow';
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonicalPath={config ? `/${config.slug}` : '/404'}
+  lang={lang}
+  robots={robots}
+>
+  {config ? (
+    <CategoryPage lang={lang} type={config} posts={posts} query={query} />
+  ) : (
+    <NotFound lang={lang} counts={counts} />
+  )}
+</BaseLayout>
