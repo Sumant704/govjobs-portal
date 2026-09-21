@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
+import vercel from '@astrojs/vercel';
 import tailwindcss from '@tailwindcss/vite';
 
 /**
@@ -8,17 +9,13 @@ import tailwindcss from '@tailwindcss/vite';
  * ---------------
  * `output: 'server'` + the Node adapter is used here so the site can run
  * anywhere (VPS / Docker / PM2) AND so every page is rendered on-demand with a
- * short edge cache — which is what this niche needs, because exam results and
- * admit cards change several times a day.
- *
- * Swapping hosts is a two-line change:
- *   Vercel  ->  import vercel from '@astrojs/vercel';  adapter: vercel()
- *   Netlify ->  import netlify from '@astrojs/netlify'; adapter: netlify()
+ * short edge cache.
+ * When deployed on Vercel, the Vercel adapter is automatically used.
  */
 export default defineConfig({
   site: process.env.SITE_URL || 'https://example-govjobs.com',
   output: 'server',
-  adapter: node({ mode: 'standalone' }),
+  adapter: process.env.VERCEL ? vercel() : node({ mode: 'standalone' }),
 
   // Hindi is served under /hi/ (see src/i18n + src/pages/hi).
   i18n: {
